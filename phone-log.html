@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Screentime Log"/>
+<meta name="theme-color" content="#fdf8f2"/>
+<link rel="apple-touch-icon" href="./icon.png"/>
+<link rel="icon" type="image/png" href="./icon.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<title>Screentime Log</title>
+<style>
+:root {
+  --accent:      #d4603a;
+  --accent-dark: #b84e2a;
+  --accent-tint: #f9ede7;
+  --ink:         #2c1a0e;
+  --ink-mid:     #6b4c3b;
+  --ink-dim:     #a08070;
+  --cream:       #fdf8f2;
+  --cream-dark:  #f0e8dc;
+  --border:      #e8ddd0;
+  --shadow:      0 2px 12px rgba(44,26,14,.08);
+  --shadow-lift: 0 6px 24px rgba(44,26,14,.13);
+  --green:       #5a9e57;
+  --green-tint:  #edf6ec;
+  --warn:        #c0392b;
+  --radius:      14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  background: var(--cream);
+  font-family: 'Manrope', sans-serif;
+  color: var(--ink);
+  min-height: 100dvh;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 10% 0%, rgba(212,96,58,.09) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(90,94,120,.06) 0%, transparent 70%);
+}
+input, textarea, select { -webkit-user-select: auto; user-select: auto; }
+
+header {
+  background: rgba(253,248,242,.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px 12px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.brand { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1; }
+.brand em { font-style: italic; font-weight: 500; color: var(--accent); }
+.sync-btn {
+  font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600;
+  background: var(--green-tint); color: var(--green);
+  border: 1px solid var(--green); border-radius: 20px;
+  padding: 6px 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  transition: opacity .15s;
+}
+.sync-btn:active { opacity: .7; }
+.sync-btn.syncing { opacity: .6; pointer-events: none; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.sync-dot.pending { background: var(--accent); }
+
+/* Setup banner */
+.setup-banner {
+  margin: 16px 16px 0;
+  background: linear-gradient(135deg, var(--accent-tint), #fff);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 13px; color: var(--accent-dark);
+  line-height: 1.5;
+}
+.setup-banner strong { font-weight: 700; }
+.setup-banner a { color: var(--accent-dark); font-weight: 600; }
+.setup-url-row { display: flex; gap: 8px; margin-top: 10px; }
+.setup-url-row input {
+  flex: 1; background: #fff; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font-size: 13px; font-family: 'Manrope', sans-serif;
+  color: var(--ink); outline: none; min-height: 40px;
+}
+.setup-url-row input:focus { border-color: var(--accent); }
+.setup-url-row button {
+  background: var(--accent-dark); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 9px 14px; font-size: 13px; font-weight: 700;
+  font-family: 'Manrope', sans-serif; cursor: pointer;
+  white-space: nowrap;
+}
+
+.form-wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.card-title { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; color: var(--ink-mid); margin-bottom: 12px; }
+.card-title em { font-style: italic; font-weight: 500; color: var(--accent); }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field + .field { margin-top: 10px; }
+.label { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-dim); }
+.label .req { color: var(--accent); margin-left: 2px; }
+.input-field {
+  width: 100%; background: var(--cream); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; font-size: 16px;
+  font-family: 'Manrope', sans-serif; color: var(--ink);
+  appearance: none; -webkit-appearance: none; outline: none;
+  transition: border-color .15s, box-shadow .15s; min-height: 44px;
+}
+.input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(212,96,58,.1); }
+.input-field.error { border-color: var(--warn); }
+textarea.input-field { resize: none; line-height: 1.5; }
+.err-msg { font-size: 11px; color: var(--warn); display: none; margin-top: 2px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint-pill {
+  background: var(--accent-tint); border-radius: 8px;
+  padding: 9px 12px; font-size: 12px; font-weight: 500;
+  color: var(--accent-dark); cursor: pointer; display: none; margin-top: 8px; line-height: 1.4;
+}
+
+.btn-row { max-width: 480px; margin: 0 auto; padding: 4px 16px 0; display: flex; gap: 10px; }
+.btn {
+  flex: 1; padding: 15px 12px; border-radius: 12px; border: none;
+  font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s, transform .1s; min-height: 50px;
+}
+.btn:active { transform: scale(.97); opacity: .85; }
+.btn-primary { background: var(--accent-dark); color: #fff; }
+.btn-secondary { background: #fff; color: var(--accent-dark); border: 1.5px solid var(--accent); }
+
+.toast {
+  position: fixed; bottom: calc(28px + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%) translateY(100px);
+  background: var(--ink); color: var(--cream); border-radius: 999px;
+  padding: 11px 22px; font-family: 'Manrope', sans-serif;
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(44,26,14,.2);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+  opacity: 0; pointer-events: none; z-index: 100;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+.recent-section { max-width: 480px; margin: 0 auto; padding: 4px 16px 0; }
+.section-label { font-family: 'Fraunces', serif; font-style: italic; font-size: 13px; color: var(--ink-dim); margin-bottom: 10px; padding-left: 2px; }
+.recent-item {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 11px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow);
+}
+.ri-left .ri-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.ri-left .ri-sub { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+.ri-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
+.ri-date { font-family: 'Fraunces', serif; font-style: italic; font-size: 12px; color: var(--ink-dim); }
+.ri-sync { font-size: 10px; margin-top: 2px; }
+.ri-sync.synced { color: var(--green); }
+.ri-sync.pending { color: var(--accent); }
+.divider { height: 1px; background: var(--border); margin: 16px auto 0; max-width: 480px; }
+.empty-msg { font-size: 13px; color: var(--ink-dim); padding: 4px 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Screen<em>time</em></div>
+  <button class="sync-btn" id="sync-btn" onclick="syncPending()">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span id="sync-label">Sync</span>
+  </button>
+</header>
+
+<div id="setup-banner-wrap"></div>
+
+<div class="form-wrap">
+  <div class="card">
+    <div class="card-title">🎬 Quick pick <em>from watching</em></div>
+    <div class="field">
+      <select class="input-field" id="ef-pick" onchange="onPick()">
+        <option value="">— Choose a show —</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📝 Entry <em>details</em></div>
+    <div class="field">
+      <label class="label">Title</label>
+      <input class="input-field" id="ef-title" placeholder="e.g. Severance" oninput="onTitleChange()"/>
+    </div>
+    <div class="grid-2" style="margin-top:10px;">
+      <div class="field">
+        <label class="label">Type</label>
+        <select class="input-field" id="ef-type" onchange="onTypeChange()">
+          <option>TV Show</option>
+          <option>Movie</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="label">Platform</label>
+        <select class="input-field" id="ef-platform"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="tv-card">
+    <div class="card-title">📺 Season &amp; episodes</div>
+    <div class="grid-2">
+      <div class="field">
+        <label class="label">Season<span class="req">*</span></label>
+        <input class="input-field" id="ef-season" type="number" min="1" placeholder="1" oninput="onSeasonChange()"/>
+        <span class="err-msg" id="ef-season-err">⚠ Season required</span>
+      </div>
+      <div class="field">
+        <label class="label">Total Eps</label>
+        <input class="input-field" id="ef-totalep" type="number" min="1" placeholder="e.g. 10"/>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:10px;">
+      <div class="field">
+        <label class="label">Ep From</label>
+        <input class="input-field" id="ef-epfrom" type="number" min="1" placeholder="1"/>
+      </div>
+      <div class="field">
+        <label class="label">Ep To</label>
+        <input class="input-field" id="ef-epto" type="number" min="1" placeholder="3"/>
+      </div>
+    </div>
+    <div class="hint-pill" id="ef-ep-hint" onclick="applyHint()"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Date &amp; notes</div>
+    <div class="field">
+      <label class="label">Date</label>
+      <input class="input-field" id="ef-date" type="date"/>
+      <span class="err-msg" id="ef-date-err">⚠ Date cannot be in the future</span>
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label class="label">Notes</label>
+      <textarea class="input-field" id="ef-notes" rows="3" placeholder="Optional notes…"></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn btn-secondary" onclick="resetForm()">Clear</button>
+  <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+</div>
+
+<div style="height:20px;"></div>
+<div class="divider"></div>
+<div class="recent-section" style="padding-top:16px;">
+  <div class="section-label">Recent entries</div>
+  <div id="recent-list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PLATFORMS = ["Apple TV+","BBC","Cinema","Disney+","Gimy","HBO Max","Hulu","ITVX","Netflix","Paramount+","Peacock","Plane","Prime Video","Other"];
+const SCRIPT_URL_KEY = 'sc:sheetsUrl';
+const PENDING_KEY    = 'sc:pendingSync';
+
+let ongoing = [], entries = [], hintNextEp = null;
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+function load() {
+  try { ongoing = JSON.parse(localStorage.getItem('sc:ongoing') || '[]'); } catch { ongoing = []; }
+  try { entries = JSON.parse(localStorage.getItem('sc:entries') || '[]'); } catch { entries = []; }
+}
+function save() {
+  localStorage.setItem('sc:ongoing', JSON.stringify(ongoing));
+  localStorage.setItem('sc:entries', JSON.stringify(entries));
+}
+function getPending() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
+}
+function savePending(arr) { localStorage.setItem(PENDING_KEY, JSON.stringify(arr)); }
+function getScriptUrl() { return localStorage.getItem(SCRIPT_URL_KEY) || ''; }
+function setScriptUrl(url) { localStorage.setItem(SCRIPT_URL_KEY, url.trim()); }
+
+// ── Setup banner ─────────────────────────────────────────────────────────────
+function renderSetupBanner() {
+  const wrap = document.getElementById('setup-banner-wrap');
+  const url  = getScriptUrl();
+  if(url) { wrap.innerHTML = ''; updateSyncStatus(); return; }
+  wrap.innerHTML = `
+    <div class="setup-banner" style="max-width:480px;margin:16px auto 0;">
+      <strong>🔗 Connect to Google Sheets</strong><br>
+      Paste your Apps Script URL below to enable syncing. See the setup guide for instructions.
+      <div class="setup-url-row">
+        <input type="url" id="url-input" placeholder="https://script.google.com/macros/s/…/exec"/>
+        <button onclick="saveUrl()">Save</button>
+      </div>
+    </div>`;
+}
+
+function saveUrl() {
+  const val = document.getElementById('url-input').value.trim();
+  if(!val.startsWith('https://script.google.com')) {
+    showToast('⚠ Paste the full Apps Script URL', true); return;
+  }
+  setScriptUrl(val);
+  renderSetupBanner();
+  showToast('✓ URL saved! Syncing…');
+  syncPending();
+}
+
+// ── Sync status dot ───────────────────────────────────────────────────────────
+function updateSyncStatus() {
+  const pending = getPending();
+  const dot     = document.getElementById('sync-dot');
+  const label   = document.getElementById('sync-label');
+  if(!getScriptUrl()) {
+    dot.className='sync-dot pending'; label.textContent='Setup'; return;
+  }
+  if(pending.length > 0) {
+    dot.className='sync-dot pending'; label.textContent=`${pending.length} pending`;
+  } else {
+    dot.className='sync-dot'; label.textContent='Synced';
+  }
+}
+
+// ── Sync pending entries ──────────────────────────────────────────────────────
+async function syncPending() {
+  const url = getScriptUrl();
+  if(!url) { renderSetupBanner(); return; }
+  const pending = getPending();
+  if(!pending.length) { showToast('✓ Nothing to sync'); return; }
+  const btn = document.getElementById('sync-btn');
+  btn.classList.add('syncing');
+  document.getElementById('sync-label').textContent = 'Syncing…';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(pending),
+      headers: { 'Content-Type': 'text/plain' } // avoid CORS preflight
+    });
+    const data = await res.json();
+    if(data.success || data.saved >= 0) {
+      savePending([]);
+      showToast(`✓ ${pending.length} entry/entries synced!`);
+    } else {
+      showToast('⚠ Sync failed — will retry', true);
+    }
+  } catch(err) {
+    showToast('⚠ No internet — saved locally', true);
+  } finally {
+    btn.classList.remove('syncing');
+    updateSyncStatus();
+    renderRecent();
+  }
+}
+
+// ── Header ───────────────────────────────────────────────────────────────────
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function toTitle(s) { return s.replace(/\w\S*/g, w=>w.charAt(0).toUpperCase()+w.slice(1)); }
+function fmt(iso) {
+  if(!iso) return '';
+  return new Date(iso+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+
+// ── Platforms & pick ──────────────────────────────────────────────────────────
+function fillPlatforms() {
+  document.getElementById('ef-platform').innerHTML =
+    PLATFORMS.map(p=>`<option value="${p}">${p}</option>`).join('');
+}
+function fillPick() {
+  const sel = document.getElementById('ef-pick');
+  sel.innerHTML = '<option value="">— Choose a show —</option>';
+  ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie')
+    .sort((a,b)=>a.title.localeCompare(b.title))
+    .forEach(o=>{
+      const opt=document.createElement('option');
+      opt.value=o.id;
+      opt.textContent=o.title+(o.season?' · S'+o.season:'');
+      sel.appendChild(opt);
+    });
+}
+function onPick() {
+  const o = ongoing.find(x=>String(x.id)===document.getElementById('ef-pick').value);
+  if(!o) return;
+  document.getElementById('ef-title').value    = o.title;
+  document.getElementById('ef-type').value     = 'TV Show';
+  document.getElementById('ef-platform').value = o.platform||'Netflix';
+  document.getElementById('ef-season').value   = o.season||'';
+  document.getElementById('ef-totalep').value  = o.totalEp||'';
+  onTypeChange(); onSeasonChange();
+}
+
+// ── Type / season ────────────────────────────────────────────────────────────
+function onTypeChange() {
+  document.getElementById('tv-card').style.display =
+    document.getElementById('ef-type').value==='Movie' ? 'none' : 'block';
+}
+function onTitleChange() { onSeasonChange(); }
+function onSeasonChange() {
+  const title=document.getElementById('ef-title').value.trim().toLowerCase();
+  const season=document.getElementById('ef-season').value;
+  const hint=document.getElementById('ef-ep-hint');
+  hintNextEp=null;
+  if(!title||!season){hint.style.display='none';return;}
+  const prev=entries.filter(e=>e.title.trim().toLowerCase()===title&&String(e.season)===String(season))
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(prev.length){
+    const lastEp=parseInt(prev[0].episodeTo||prev[0].episode||'0');
+    if(lastEp>0){
+      hintNextEp=lastEp+1;
+      hint.textContent=`▶ Last watched Ep ${lastEp} — tap to continue from Ep ${hintNextEp}`;
+      hint.style.display='block'; return;
+    }
+  }
+  hint.style.display='none';
+}
+function applyHint() { if(hintNextEp) document.getElementById('ef-epfrom').value=hintNextEp; }
+
+function getFirstPlatform(title,season) {
+  const t=title.trim().toLowerCase();
+  const o=ongoing.find(x=>x.title.trim().toLowerCase()===t&&String(x.season)===String(season)&&x.platform);
+  if(o) return o.platform;
+  const e=entries.filter(x=>x.title.trim().toLowerCase()===t&&String(x.season)===String(season)&&x.platform)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  return e.length?e[0].platform:null;
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+function saveEntry() {
+  const title=toTitle(document.getElementById('ef-title').value.trim());
+  if(!title){showToast('Please enter a title',true);return;}
+  const type=document.getElementById('ef-type').value;
+  const seasonVal=document.getElementById('ef-season').value;
+  const seasonErr=document.getElementById('ef-season-err');
+  if(type==='TV Show'&&!seasonVal){
+    seasonErr.style.display='block';
+    document.getElementById('ef-season').classList.add('error'); return;
+  }
+  seasonErr.style.display='none';
+  document.getElementById('ef-season').classList.remove('error');
+  const dateVal=document.getElementById('ef-date').value;
+  const dateErr=document.getElementById('ef-date-err');
+  if(!dateVal||dateVal>todayStr()){
+    dateErr.style.display='block';
+    document.getElementById('ef-date').classList.add('error'); return;
+  }
+  dateErr.style.display='none';
+  document.getElementById('ef-date').classList.remove('error');
+  const epFrom=document.getElementById('ef-epfrom').value;
+  const epTo=document.getElementById('ef-epto').value;
+  const isRange=type==='TV Show'&&epFrom&&epTo&&parseInt(epTo)>parseInt(epFrom);
+  const platform=(type==='TV Show'?getFirstPlatform(title,seasonVal):null)||document.getElementById('ef-platform').value;
+  const base={
+    title,type,season:seasonVal,
+    episode:epFrom||'',episodeTo:isRange?epTo:'',
+    totalEp:document.getElementById('ef-totalep').value,
+    platform,date:dateVal,notes:document.getElementById('ef-notes').value
+  };
+  load();
+  const newEntries=[];
+  if(isRange){
+    const ts=Date.now();
+    for(let ep=parseInt(epFrom);ep<=parseInt(epTo);ep++){
+      newEntries.push({...base,id:ts+ep,episode:String(ep),episodeTo:''});
+    }
+  } else {
+    newEntries.push({...base,id:Date.now()});
+  }
+  newEntries.forEach(e=>entries.push(e));
+  if(type==='TV Show'){
+    const rec=ongoing.find(o=>o.title.trim().toLowerCase()===title.toLowerCase()&&String(o.season)===String(seasonVal)&&!o.completed);
+    if(rec){
+      const ep=parseInt(isRange?epTo:epFrom)||0;
+      if(ep>parseInt(rec.currentEp||0)) rec.currentEp=String(ep);
+      if(rec.totalEp&&parseInt(rec.currentEp)>=parseInt(rec.totalEp)){
+        rec.completed=true;rec.completedDate=dateVal;rec.completedType='TV Show';
+      }
+    }
+  }
+  save();
+  // Queue for sync
+  const pending=getPending();
+  newEntries.forEach(e=>pending.push(e));
+  savePending(pending);
+  showToast('✓ Saved! Syncing…');
+  resetForm();
+  renderRecent();
+  updateSyncStatus();
+  syncPending(); // auto-sync immediately
+}
+
+// ── Reset ────────────────────────────────────────────────────────────────────
+function resetForm() {
+  ['ef-pick','ef-title','ef-season','ef-totalep','ef-epfrom','ef-epto','ef-notes']
+    .forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('ef-type').value='TV Show';
+  document.getElementById('ef-date').value=todayStr();
+  document.getElementById('ef-ep-hint').style.display='none';
+  document.getElementById('ef-season-err').style.display='none';
+  document.getElementById('ef-date-err').style.display='none';
+  document.getElementById('ef-season').classList.remove('error');
+  document.getElementById('ef-date').classList.remove('error');
+  onTypeChange();
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=isErr?'var(--warn)':'var(--ink)';
+  t.classList.add('show'); clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── Recent ───────────────────────────────────────────────────────────────────
+function renderRecent(){
+  load();
+  const pending=getPending();
+  const pendingIds=new Set(pending.map(e=>String(e.id)));
+  const list=document.getElementById('recent-list');
+  const recent=[...entries].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10);
+  if(!recent.length){list.innerHTML='<div class="empty-msg">No entries yet.</div>';return;}
+  list.innerHTML=recent.map(e=>{
+    const ep=e.episode?(e.episodeTo?`Ep ${e.episode}–${e.episodeTo}`:`Ep ${e.episode}`):'';
+    const sub=[e.platform,e.season?'S'+e.season:'',ep].filter(Boolean).join(' · ');
+    const isSynced=!pendingIds.has(String(e.id));
+    return `<div class="recent-item">
+      <div class="ri-left">
+        <div class="ri-title">${e.title}</div>
+        <div class="ri-sub">${sub}</div>
+      </div>
+      <div class="ri-right">
+        <div class="ri-date">${fmt(e.date)}</div>
+        <div class="ri-sync ${isSynced?'synced':'pending'}">${isSynced?'✓ synced':'⏳ pending'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+load();
+fillPlatforms();
+fillPick();
+document.getElementById('ef-date').value=todayStr();
+onTypeChange();
+renderSetupBanner();
+renderRecent();
+updateSyncStatus();
+</script>
+</body>
+</html>
