@@ -167,6 +167,17 @@ textarea.input-field { resize: none; line-height: 1.5; }
 .ri-sync.pending { color: var(--accent); }
 .divider { height: 1px; background: var(--border); margin: 16px auto 0; max-width: 480px; }
 .empty-msg { font-size: 13px; color: var(--ink-dim); padding: 4px 2px; }
+
+.star {
+  font-size: 28px;
+  color: var(--border);
+  cursor: pointer;
+  transition: color .15s, transform .1s;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.star.active { color: var(--accent); }
+.star:active { transform: scale(.85); }
 </style>
 </head>
 <body>
@@ -249,6 +260,20 @@ textarea.input-field { resize: none; line-height: 1.5; }
       <label class="label">Date</label>
       <input class="input-field" id="ef-date" type="date"/>
       <span class="err-msg" id="ef-date-err">⚠ Date cannot be in the future</span>
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label class="label">Rating <span style="color:var(--ink-dim);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
+        <div id="star-row" style="display:flex;gap:4px;">
+          <span class="star" data-v="1" onclick="setRating(1)">★</span>
+          <span class="star" data-v="2" onclick="setRating(2)">★</span>
+          <span class="star" data-v="3" onclick="setRating(3)">★</span>
+          <span class="star" data-v="4" onclick="setRating(4)">★</span>
+          <span class="star" data-v="5" onclick="setRating(5)">★</span>
+        </div>
+        <span id="rating-label" style="font-family:'Manrope',sans-serif;font-size:12px;color:var(--ink-dim);min-width:60px;"></span>
+        <span onclick="setRating(0)" style="font-size:11px;color:var(--ink-dim);cursor:pointer;text-decoration:underline;margin-left:4px;">Clear</span>
+      </div>
     </div>
     <div class="field" style="margin-top:10px;">
       <label class="label">Notes</label>
@@ -455,7 +480,7 @@ function saveEntry() {
   const epTo=document.getElementById('ef-epto').value;
   const isRange=type==='TV Show'&&epFrom&&epTo&&parseInt(epTo)>parseInt(epFrom);
   const platform=document.getElementById('ef-platform').value;
-  const base={title,type,season:seasonVal,episode:epFrom||'',episodeTo:isRange?epTo:'',totalEp:document.getElementById('ef-totalep').value,platform,date:dateVal,notes:document.getElementById('ef-notes').value};
+  const base={title,type,season:seasonVal,episode:epFrom||'',episodeTo:isRange?epTo:'',totalEp:document.getElementById('ef-totalep').value,platform,date:dateVal,notes:document.getElementById('ef-notes').value,rating:currentRating||''};
   const newEntries=[];
   if(isRange){const ts=Date.now();for(let ep=parseInt(epFrom);ep<=parseInt(epTo);ep++)newEntries.push({...base,id:ts+ep,episode:String(ep),episodeTo:''});}
   else newEntries.push({...base,id:Date.now()});
@@ -473,6 +498,7 @@ function saveEntry() {
 // ── Reset ─────────────────────────────────────────────────────────────────────
 function resetForm() {
   ['ef-pick','ef-title','ef-season','ef-totalep','ef-epfrom','ef-epto','ef-notes'].forEach(id=>document.getElementById(id).value='');
+  setRating(0);
   document.getElementById('ef-type').value='TV Show';
   document.getElementById('ef-date').value=todayStr();
   document.getElementById('ef-ep-hint').style.display='none';
@@ -503,9 +529,10 @@ function renderRecent(){
   list.innerHTML=recent.map(e=>{
     const ep=e.episode?(e.episodeTo?`Ep ${e.episode}–${e.episodeTo}`:`Ep ${e.episode}`):'';
     const sub=[e.platform,e.season?'S'+e.season:'',ep].filter(Boolean).join(' · ');
+    const stars = e.rating ? '★'.repeat(e.rating)+'☆'.repeat(5-e.rating) : '';
     const synced=!pendingIds.has(String(e.id));
     return `<div class="recent-item">
-      <div class="ri-left"><div class="ri-title">${e.title}</div><div class="ri-sub">${sub}</div></div>
+      <div class="ri-left"><div class="ri-title">${e.title}</div><div class="ri-sub">${sub}</div>${stars?`<div style="font-size:11px;color:var(--accent);letter-spacing:1px;margin-top:2px;">${stars}</div>`:''}</div>
       <div class="ri-right"><div class="ri-date">${fmt(e.date)}</div><div class="ri-sync ${synced?'synced':'pending'}">${synced?'✓ synced':'⏳ pending'}</div></div>
     </div>`;
   }).join('');
@@ -528,6 +555,20 @@ function saveSettings() {
   renderSetupBanner();
   updateSyncStatus();
   refreshWatching();
+}
+
+// ── Rating ───────────────────────────────────────────────────────────────────
+let currentRating = 0;
+const RATING_LABELS = ['','😕 Poor','😐 Fair','🙂 Good','😊 Great','🤩 Amazing'];
+
+function setRating(val) {
+  currentRating = val;
+  const stars = document.querySelectorAll('.star');
+  stars.forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.v) <= val);
+  });
+  const lbl = document.getElementById('rating-label');
+  lbl.textContent = val > 0 ? RATING_LABELS[val] : '';
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
