@@ -490,12 +490,14 @@ function saveEntry() {
   const pending=getPending();
   newEntries.forEach(e=>pending.push(e));
   savePending(pending);
-  const lastEpNum = parseInt(isRange ? epTo : epFrom) || 0;
+  const lastEpNum  = parseInt(isRange ? epTo : epFrom) || 0;
   const totalEpNum = parseInt(document.getElementById('ef-totalep').value) || 0;
   showToast('✓ Saved! Syncing…');
   resetForm(); renderRecent(); updateSyncStatus();
-  syncPending();
-  if(type==='TV Show' && lastEpNum && totalEpNum) checkAndRemoveCompleted(title, seasonVal, lastEpNum, totalEpNum);
+  syncPending().then(() => {
+    // After sync, refresh watching list so new shows appear and completed ones disappear
+    if(type==='TV Show') refreshWatching();
+  });
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
