@@ -1,0 +1,2418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Screentime — Watch Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#fdf8f2;--bgCard:#fff9f4;--bgInput:#fdf6ee;
+  --border:#e8d8c8;--accent:#d4603a;--accentLight:#f09070;--accentBg:#d4603a18;
+  --text:#2a1a10;--textMid:#8a5a3a;--textDim:#c4a080;
+  --matcha:#7d9e7a;--matchaBg:#7d9e7a18;--matchaBorder:#7d9e7a44;
+  --giveUp:#8a6a9a;--giveUpBg:#8a6a9a18;--giveUpBorder:#8a6a9a44;
+  --shadow:0 2px 16px #d4603a18;
+}
+body{background:var(--bg);color:var(--text);font-family:'Lora',Georgia,serif;min-height:100vh;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:#d4603a44;border-radius:2px;}
+input,select,textarea{font-family:'DM Sans',sans-serif;}
+button{cursor:pointer;}
+
+/* Tabs */
+.tab-btn{background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.04em;color:#b08060;transition:all .2s;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-btn:hover{color:var(--accentLight);}
+
+/* Buttons */
+.btn-primary{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:all .2s;box-shadow:0 3px 12px var(--accentBg);}
+.btn-primary:hover{background:#c05030;transform:translateY(-1px);}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--textMid);border-radius:8px;padding:6px 14px;font-family:'DM Sans',sans-serif;font-size:12px;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn-edit{background:none;border:1px solid var(--border);color:var(--textMid);border-radius:6px;padding:3px 10px;font-family:'DM Sans',sans-serif;font-size:11px;transition:all .2s;}
+.btn-edit:hover{border-color:var(--accent);color:var(--accent);}
+.btn-complete{background:none;border:1px solid var(--matcha);color:var(--matcha);border-radius:8px;padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;transition:all .2s;}
+.btn-complete:hover{background:var(--matchaBg);}
+.btn-giveup{background:none;border:1px solid var(--giveUp);color:var(--giveUp);border-radius:8px;padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;transition:all .2s;}
+.btn-giveup:hover{background:var(--giveUpBg);}
+.delete-btn{background:none;border:none;color:var(--textDim);font-size:13px;padding:2px 5px;border-radius:4px;transition:color .2s;}
+.delete-btn:hover{color:#e03020;background:#e0302010;}
+
+/* Forms */
+.input-field{width:100%;background:var(--bgInput);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border .2s;}
+.input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentBg);}
+.label{font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--textMid);text-transform:uppercase;margin-bottom:5px;display:block;}
+.hint{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);margin-top:3px;}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);}
+input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
+
+/* Cards */
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;transition:all .2s;box-shadow:var(--shadow);}
+.card:hover{border-color:#d4b89a;}
+.platform-badge{display:inline-block;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;letter-spacing:.05em;color:#666;}
+.progress-bar-bg{background:var(--border);border-radius:4px;height:5px;width:100%;margin-top:5px;overflow:hidden;}
+.progress-bar-fill{background:linear-gradient(90deg,var(--accentLight),var(--accent));height:100%;border-radius:4px;transition:width .5s ease;}
+
+/* Pills */
+.pill-tv{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:700;background:var(--accentBg);color:var(--accent);border:1px solid #f0907044;}
+.pill-movie{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:700;background:var(--matchaBg);color:var(--matcha);border:1px solid var(--matchaBorder);}
+.pill-giveup{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:700;background:var(--giveUpBg);color:var(--giveUp);border:1px solid var(--giveUpBorder);}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:#2a1a1066;z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal{background:var(--bgCard);border:1px solid var(--border);border-radius:20px;padding:28px;width:460px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px #d4603a20;}
+.hidden{display:none!important;}
+
+/* Calendar */
+.cal-cell{cursor:pointer;border-radius:8px;padding:5px;min-height:40px;transition:all .15s;border:1px solid var(--border);background:var(--bgCard);position:relative;}
+.cal-cell:hover{border-color:var(--accentLight);background:#fff4ee;}
+.cal-cell.has-entry{border-color:var(--accentLight);background:#fff4ee;}
+.cal-cell.selected{border-color:var(--accent);background:#ffe8e0;box-shadow:0 0 0 2px var(--accentBg);}
+.cal-cell.today{border-color:var(--accent);}
+.cal-entry-text{font-size:11px;color:#8a5a3a;font-family:'DM Sans',sans-serif;word-break:break-word;display:flex;align-items:flex-start;gap:3px;margin-bottom:2px;line-height:1.4;}
+
+/* Month heading */
+.month-heading{font-family:'Lora',serif;font-size:17px;font-weight:700;color:var(--textMid);margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+
+/* Star rating */
+.star-btn{background:none;border:none;font-size:26px;padding:2px 4px;transition:transform .1s;line-height:1;opacity:.25;}
+.star-btn.on{opacity:1;}
+.star-btn:hover{transform:scale(1.2);}
+
+/* Animations */
+@keyframes spin{to{transform:rotate(360deg);}}
+.spinner{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
+@keyframes popIn{0%{opacity:0;transform:scale(.85) translateY(20px);}100%{opacity:1;transform:scale(1) translateY(0);}}
+.review-modal{animation:popIn .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes confetti-anim{0%{opacity:1;transform:translateY(0) rotate(0deg);}100%{opacity:0;transform:translateY(-80px) rotate(360deg);}}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confetti-anim 1s ease forwards;}
+
+/* Saved indicator */
+#save-indicator{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);display:flex;align-items:center;gap:5px;}
+.saved-dot{color:#6aaa60;font-size:14px;}
+
+/* Header buttons */
+.header-btn-file{background:var(--bgCard);border:1.5px solid var(--border);border-radius:8px;padding:6px 13px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textMid);font-weight:500;}
+.header-btn-save{background:var(--accent);border:none;border-radius:8px;padding:6px 14px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;}
+
+/* Grid layouts */
+.grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;}
+.grid-auto-sm{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.divider{border:none;border-top:1px solid var(--border);margin:10px 0;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;}
+.flex-end{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+.gap-8{gap:8px;}
+.gap-12{gap:12px;}
+.mb-8{margin-bottom:8px;}
+.mb-12{margin-bottom:12px;}
+.mb-18{margin-bottom:18px;}
+.mb-20{margin-bottom:20px;}
+.mt-4{margin-top:4px;}
+.mt-5{margin-top:5px;}
+@media print {
+  body * { visibility: hidden !important; }
+  #cal-print-overlay, #cal-print-overlay * { visibility: visible !important; }
+  #cal-print-overlay { position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; overflow: visible !important; padding: 0 !important; z-index: 9999 !important; }
+  #cal-print-controls { display: none !important; }
+  #cal-print-content { transform-origin: top left; transform: scale(0.75); width: 133% !important; }
+  @page { margin: 0.5cm; size: A4 landscape; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top accent bar -->
+<div style="height:4px;background:linear-gradient(90deg,#f09070,#d4603a,#c04020)"></div>
+
+<!-- Header -->
+<div style="padding:24px 36px 0;max-width:1120px;margin:0 auto;">
+  <div class="flex-between mb-8" style="align-items:center;">
+    <div style="display:flex;align-items:baseline;gap:12px;">
+      <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
+      <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v2.3</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
+      <div id="save-indicator"><span class="saved-dot">●</span>Saved</div>
+      <button class="header-btn-file" onclick="clearAllData()" style="color:#c05a35;border-color:#f0c0b0;cursor:pointer;">🗑️ Clear Data</button>
+      <label class="header-btn-file" style="cursor:pointer;">
+        📂 Import Excel
+        <input type="file" id="import-input" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(this)"/>
+      </label>
+      <button class="header-btn-save" onclick="exportExcel()">💾 Export Excel</button>
+      <button class="header-btn-file" id="sheets-sync-btn" onclick="manualSheetsSync()" style="cursor:pointer;">☁️ Sync Phone</button>
+    </div>
+  </div>
+  <p id="stats-bar" style="display:none;"></p>
+  <div style="display:flex;border-bottom:1px solid var(--border);gap:2px;">
+    <button class="tab-btn active" onclick="switchTab(0,this)">📅 Watch Log</button>
+    <button class="tab-btn" onclick="switchTab(1,this)">📺 Watching</button>
+    <button class="tab-btn" onclick="switchTab(2,this)">✅ Completed</button>
+    <button class="tab-btn" onclick="switchTab(3,this)">💔 Given Up</button>
+    <button class="tab-btn" onclick="switchTab(4,this)">⭐ Wishlist</button>
+    <button class="tab-btn" onclick="switchTab(5,this)">📊 Stats</button>
+  </div>
+</div>
+
+<!-- Tab content -->
+<div style="padding:22px 36px 80px;max-width:1120px;margin:0 auto;">
+  <div id="tab-0"></div>
+  <div id="tab-1" class="hidden">
+    <div id="tab-1-header"></div>
+    <div id="tab-1-results"></div>
+  </div>
+  <div id="tab-2" class="hidden">
+    <div id="tab-2-header"></div>
+    <div id="tab-2-results"></div>
+  </div>
+  <div id="tab-3" class="hidden">
+    <div id="tab-3-header"></div>
+    <div id="tab-3-results"></div>
+  </div>
+  <div id="tab-4" class="hidden">
+    <div id="tab-4-header"></div>
+    <div id="tab-4-results"></div>
+  </div>
+  <div id="tab-5" class="hidden"></div>
+</div>
+
+<!-- MODAL: Log Entry -->
+<div id="modal-entry" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-entry')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2 style="font-family:'Lora',serif;font-size:19px;color:var(--accent);margin-bottom:18px;" id="entry-modal-title">Log Entry</h2>
+    <input type="hidden" id="edit-entry-id"/>
+    <div style="display:grid;gap:12px;">
+      <div>
+        <label class="label">Pick from Watching <span style="color:var(--textDim);font-weight:400;">(optional)</span></label>
+        <select class="input-field" id="ef-pick-watching" onchange="onPickWatching()">
+          <option value="">— Type manually —</option>
+        </select>
+      </div>
+      <div><label class="label">Title</label><input class="input-field" id="ef-title" placeholder="e.g. Shrinking" oninput="onTitleChange()"/></div>
+      <div class="grid-2">
+        <div><label class="label">Type</label>
+          <select class="input-field" id="ef-type" onchange="onTypeChange()">
+            <option>TV Show</option><option>Movie</option>
+          </select>
+        </div>
+        <div><label class="label">Platform</label>
+          <select class="input-field" id="ef-platform"></select>
+        </div>
+      </div>
+      <p class="hint hidden" id="ef-platform-hint"></p>
+      <div id="ef-tv-fields" class="grid-2">
+        <div><label class="label">Season <span style="color:#d4603a;">*</span></label><input class="input-field" id="ef-season" type="number" min="1" placeholder="Required" oninput="onSeasonChange()" style="border-color:var(--border);"/><p id="ef-season-error" style="color:#d4603a;font-family:'DM Sans',sans-serif;font-size:11px;margin-top:3px;display:none;">⚠️ Season number is required.</p></div>
+        <div><label class="label">Total Eps</label><input class="input-field" id="ef-totalep" type="number" min="1" placeholder="e.g. 10"/></div>
+        <div><label class="label">From Episode</label><input class="input-field" id="ef-epfrom" type="number" min="1" placeholder="e.g. 1"/>
+          <p class="hint hidden" id="ef-epfrom-hint"></p>
+        </div>
+        <div><label class="label">To Episode (binge)</label><input class="input-field" id="ef-epto" type="number" min="1" placeholder="optional"/></div>
+      </div>
+      <div><label class="label">Date Watched</label><input class="input-field" id="ef-date" type="date"/>
+        <p class="hint">Change to backdate this entry.</p>
+        <p id="ef-date-error" style="color:#d4603a;font-family:'DM Sans',sans-serif;font-size:12px;margin-top:4px;display:none;">📅 That's in the future! Please pick today or an earlier date.</p>
+      </div>
+      <div><label class="label">Notes</label><textarea class="input-field" id="ef-notes" rows="2" style="resize:vertical;"></textarea></div>
+      <div class="flex-end">
+        <button class="btn-ghost" onclick="closeModal('modal-entry')">Cancel</button>
+        <button class="btn-primary" onclick="saveEntry()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Show/Ongoing -->
+<div id="modal-ongoing" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-ongoing')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2 style="font-family:'Lora',serif;font-size:19px;color:var(--accent);margin-bottom:18px;" id="ongoing-modal-title">Track a Show</h2>
+    <input type="hidden" id="edit-ongoing-id"/>
+    <div style="display:grid;gap:12px;">
+      <div><label class="label">Show Title</label><input class="input-field" id="of-title" placeholder="e.g. Severance"/></div>
+      <div class="grid-2">
+        <div><label class="label">Platform</label><select class="input-field" id="of-platform"></select></div>
+        <div><label class="label">Type</label>
+          <select class="input-field" id="of-type" onchange="onOngoingTypeChange()"><option>TV Show</option><option>Movie</option></select>
+        </div>
+      </div>
+      <div id="of-tv-fields">
+        <div class="grid-2" style="margin-bottom:12px;">
+          <div><label class="label">Season</label><input class="input-field" id="of-season" type="number" min="1" value="1" oninput="onSeasonChange()"/></div>
+          <div><label class="label">Total Episodes</label><input class="input-field" id="of-totalep" type="number" min="1" placeholder="e.g. 10"/></div>
+        </div>
+        <div class="grid-2">
+          <div><label class="label">Current Episode</label><input class="input-field" id="of-currentep" type="number" min="0" placeholder="e.g. 4"/></div>
+          <div></div>
+        </div>
+      </div>
+      <label class="checkbox-row"><input type="checkbox" id="of-completed" onchange="onCompletedChange()"/> Mark as completed</label>
+      <div id="of-completed-date-row" class="hidden">
+        <label class="label">Completion Date</label>
+        <input class="input-field" id="of-completeddate" type="date"/>
+      </div>
+      <div><label class="label">Notes</label><textarea class="input-field" id="of-notes" rows="2" style="resize:vertical;"></textarea></div>
+      <div id="of-airing-row"><label class="label">Airing Status</label>
+        <select class="input-field" id="of-airing">
+          <option value="airing">Ongoing</option>
+          <option value="ended">Released</option>
+        </select>
+      </div>
+      <div id="of-review-section" class="hidden">
+        <hr class="divider"/>
+        <label class="label">Your Rating (out of 10)</label>
+        <div id="of-stars" style="display:flex;gap:2px;margin-bottom:6px;"></div>
+        <div id="of-score-label" style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--accent);font-weight:600;margin-bottom:4px;"></div>
+        <label class="label">Review / Comments</label>
+        <textarea class="input-field" id="of-review" rows="3" placeholder="What did you think?" style="resize:vertical;"></textarea>
+      </div>
+      <div class="flex-end">
+        <button class="btn-ghost" onclick="closeModal('modal-ongoing')">Cancel</button>
+        <button class="btn-primary" onclick="saveOngoing()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Wishlist -->
+<div id="modal-wish" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-wish')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2 style="font-family:'Lora',serif;font-size:19px;color:var(--accent);margin-bottom:18px;">Add to Wishlist</h2>
+    <input type="hidden" id="edit-wish-id"/>
+    <div style="display:grid;gap:12px;">
+      <div><label class="label">Title</label><input class="input-field" id="wf-title" placeholder="e.g. Slow Horses"/></div>
+      <div class="grid-2">
+        <div><label class="label">Type</label><select class="input-field" id="wf-type"><option>TV Show</option><option>Movie</option></select></div>
+        <div><label class="label">Platform (optional)</label><select class="input-field" id="wf-platform"></select></div>
+      </div>
+      <div><label class="label">Notes (optional)</label><textarea class="input-field" id="wf-notes" rows="2" style="resize:vertical;"></textarea></div>
+      <div class="flex-end">
+        <button class="btn-ghost" onclick="closeModal('modal-wish')">Cancel</button>
+        <button class="btn-primary" onclick="saveWish()">Add to Wishlist</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Review Popup -->
+<div id="modal-review" class="modal-overlay hidden" style="z-index:200;">
+  <div class="modal review-modal" style="max-width:400px;text-align:center;position:relative;overflow:visible;" onclick="event.stopPropagation()">
+    <div id="confetti-container"></div>
+    <div style="font-size:44px;margin-bottom:8px;">🎉</div>
+    <h2 id="review-heading" style="font-family:'Lora',serif;font-size:20px;color:var(--accent);margin-bottom:4px;">Season Complete!</h2>
+    <p id="review-subtitle" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--textMid);margin-bottom:20px;"></p>
+    <div style="margin-bottom:16px;">
+      <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Your Rating</div>
+      <div id="review-stars" style="display:flex;justify-content:center;gap:2px;"></div>
+      <div id="review-score-label" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--accent);margin-top:6px;font-weight:600;min-height:20px;"></div>
+    </div>
+    <div style="margin-bottom:20px;text-align:left;">
+      <label class="label">Comments (optional)</label>
+      <textarea class="input-field" id="review-comment" rows="3" placeholder="What did you think?" style="resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="btn-ghost" style="font-size:12px;" onclick="skipReview()">Skip for now</button>
+      <button class="btn-primary" onclick="submitReview()">Save Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Give Up Reason -->
+<div id="modal-giveup" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-giveup')">
+  <div class="modal" style="max-width:400px;" onclick="event.stopPropagation()">
+    <div style="font-size:36px;text-align:center;margin-bottom:8px;">💔</div>
+    <h2 style="font-family:'Lora',serif;font-size:19px;color:var(--accent);margin-bottom:4px;text-align:center;">Giving up?</h2>
+    <p id="giveup-subtitle" style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--textMid);margin-bottom:20px;text-align:center;"></p>
+    <div style="display:grid;gap:8px;margin-bottom:16px;">
+      <label class="label">Why are you giving up? (optional)</label>
+      <div id="giveup-reasons" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+      <textarea class="input-field" id="giveup-note" rows="2" placeholder="Anything else to add…" style="resize:vertical;"></textarea>
+    </div>
+    <div class="flex-end">
+      <button class="btn-ghost" onclick="closeModal('modal-giveup')">Cancel</button>
+      <button class="btn-primary" style="background:var(--giveUp);box-shadow:none;" onclick="confirmGiveUp()">💔 Give Up</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────────
+const PLATFORMS = ["Apple TV+","BBC","Cinema","Disney+","Gimy","HBO Max","Hulu","ITVX","Netflix","Paramount+","Peacock","Plane","Prime Video","Other"];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const platformColors = {"Apple TV+":"#888","BBC":"#888","Cinema":"#888","Disney+":"#888","Gimy":"#888","HBO Max":"#888","Hulu":"#888","ITVX":"#888","Netflix":"#888","Paramount+":"#888","Peacock":"#888","Plane":"#888","Prime Video":"#888","Other":"#888"};
+const typeColors = {"TV Show":"#d4603a","Movie":"#7d9e7a"};
+
+// ── State (localStorage) ───────────────────────────────────────────────────────
+function load(key, def) { try { return JSON.parse(localStorage.getItem('sc:'+key)) ?? def; } catch { return def; } }
+function save(key, val) { localStorage.setItem('sc:'+key, JSON.stringify(val)); showSaved(); }
+
+let entries = load('entries', []);
+let ongoing = load('ongoing', []);
+let wishlist = load('wishlist', []);
+let currentTab = 0;
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let selectedDay = null;
+let reviewTarget = null; // {id, title, season}
+let reviewScore = 0;
+let sortWatching = 'title';
+let sortCompleted = 'default';
+let filterCompletedYear = 'all';
+let filterCompletedMonth = 'all';
+let sortGivenUp = 'title';
+let sortWishlist = 'title';
+let completedView = 'card'; // 'card' or 'list'
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const toISO = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d,12).toISOString(); };
+const toInput = iso => { const d=new Date(iso); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const fmt = d => { const dt=new Date(d); return `${MONTH_NAMES[dt.getMonth()].slice(0,3)} ${dt.getDate()}, ${dt.getFullYear()}`; };
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const toTitle = s => String(s||'').replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+
+function sortBar(options, current, onChangeFn) {
+  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:18px;">
+    <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;">Sort:</span>
+    ${options.map(([val,label])=>`
+      <button onclick="${onChangeFn}('${val}')" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;transition:all .2s;
+        background:${current===val?'var(--accent)':'var(--bgCard)'};
+        color:${current===val?'#fff':'var(--textMid)'};
+        border:1px solid ${current===val?'var(--accent)':'var(--border)'};">${label}</button>
+    `).join('')}
+  </div>`;
+}
+
+function applySortOngoing(list, sort) {
+  const s = [...list];
+  if(sort==='title') s.sort((a,b)=>a.title.localeCompare(b.title));
+  else if(sort==='platform') s.sort((a,b)=>a.platform.localeCompare(b.platform));
+  else if(sort==='type') s.sort((a,b)=>(a.completedType||'TV Show').localeCompare(b.completedType||'TV Show'));
+  else if(sort==='rating-desc') s.sort((a,b)=>(b.score||0)-(a.score||0));
+  else if(sort==='date-desc') s.sort((a,b)=>b.completedDate.localeCompare(a.completedDate));
+  else if(sort==='date-asc') s.sort((a,b)=>a.completedDate.localeCompare(b.completedDate));
+  return s;
+}
+
+function showSaved() {
+  const el = document.getElementById('save-indicator');
+  el.innerHTML = '<span class="saved-dot">●</span>Saved';
+}
+function showMsg(msg, dur=4000) {
+  const el = document.getElementById('load-msg');
+  el.textContent = msg;
+  setTimeout(() => el.textContent = '', dur);
+}
+function updateStats() {
+  const watching = ongoing.filter(o=>!o.completed&&!o.givenUp).length;
+  const completed = ongoing.filter(o=>o.completed).length;
+  const givenUp = ongoing.filter(o=>o.givenUp).length;
+  document.getElementById('stats-bar').textContent = '';
+
+  // Show fix banner if completed shows exist but log entries are missing
+  const missingShows = ongoing.filter(o=>o.completed&&o.completedDate).filter(o=>{
+    const titleMatch = e => e.title.trim().toLowerCase()===o.title.trim().toLowerCase();
+    if(o.completedType==='Movie') return !entries.some(e=>titleMatch(e)&&e.type==='Movie');
+    return !entries.some(e=>titleMatch(e)&&String(e.season)===String(o.season));
+  });
+  const missingCount = missingShows.length;
+  let banner = document.getElementById('fix-banner');
+  if(missingCount > 0) {
+    if(!banner) {
+      banner = document.createElement('div');
+      banner.id = 'fix-banner';
+      banner.style.cssText = 'background:#fff3cd;border:1px solid #f0d060;border-radius:8px;padding:8px 16px;margin-bottom:12px;font-family:\'DM Sans\',sans-serif;font-size:12px;color:#7a6000;';
+      document.getElementById('stats-bar').after(banner);
+    }
+    banner.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="cursor:pointer;" onclick="this.closest('#fix-banner').querySelector('.fix-list').classList.toggle('hidden')">
+        ⚠️ ${missingCount} completed show${missingCount>1?'s have':' has'} no log entries. <span style="text-decoration:underline;font-size:11px;">Show which ▾</span>
+      </span>
+      <button onclick="fixMissingEntries()" style="background:#d4603a;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;margin-left:12px;">Fix Now</button>
+    </div>
+    <ul class="fix-list hidden" style="margin:8px 0 0 0;padding:0 0 0 18px;list-style:disc;">
+      ${missingShows.map(o=>`<li style="margin-bottom:2px;">${esc(o.title)}${o.season?' · Season '+esc(o.season):''}</li>`).join('')}
+    </ul>`;
+  } else if(banner) {
+    banner.remove();
+  }
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────────
+function switchTab(idx, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  for(let i=0;i<6;i++) {
+    const el = document.getElementById('tab-'+i);
+    if(el) el.classList.toggle('hidden', i!==idx);
+  }
+  // Only clear headers and search when switching to a different tab
+  if(idx !== currentTab) {
+    ['1','2','3','4'].forEach(n=>{const h=document.getElementById('tab-'+n+'-header');if(h)h.innerHTML='';});
+    searchWatching=''; searchCompleted=''; searchGivenUp=''; searchWishlist='';
+    statsFilterYear='all'; statsFilterMonth='all';
+  }
+  currentTab = idx;
+  renderTab(idx);
+}
+function renderTab(idx) {
+  if(idx===0) renderWatchLog();
+  else if(idx===1) renderWatching();
+  else if(idx===2) renderCompleted();
+  else if(idx===3) renderGivenUp();
+  else if(idx===4) renderWishlist();
+  else if(idx===5) renderStats();
+}
+function rerender() { updateStats(); renderTab(currentTab); }
+
+// ── Platform dropdowns ─────────────────────────────────────────────────────────
+function fillPlatformSelect(id, includeUnknown=false) {
+  const sel = document.getElementById(id); if(!sel) return;
+  sel.innerHTML = (includeUnknown ? '<option value="">Unknown</option>' : '') +
+    PLATFORMS.map(p=>`<option>${esc(p)}</option>`).join('');
+}
+
+// ── TAB 0: WATCH LOG ──────────────────────────────────────────────────────────
+function renderWatchLog() {
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const entriesByDay = {};
+  entries.forEach(e => {
+    const d = new Date(e.date);
+    if(d.getFullYear()===calYear && d.getMonth()===calMonth) {
+      const day = d.getDate();
+      if(!entriesByDay[day]) entriesByDay[day]=[];
+      entriesByDay[day].push(e);
+    }
+  });
+
+  const allCells = [
+    ...Array(firstDay).fill(null).map((_,i)=>({empty:true,key:'e'+i})),
+    ...Array(daysInMonth).fill(null).map((_,i)=>({empty:false,day:i+1}))
+  ];
+  while(allCells.length%7!==0) allCells.push({empty:true,key:'p'+allCells.length});
+  const weeks=[];
+  for(let i=0;i<allCells.length;i+=7) weeks.push(allCells.slice(i,i+7));
+
+  const today = new Date();
+  const calHtml = weeks.map(week=>`
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+      ${week.map(cell=>{
+        if(cell.empty) return '<div style="border-radius:8px;border:1px solid transparent;"></div>';
+        const day=cell.day;
+        const isToday=today.getDate()===day&&today.getMonth()===calMonth&&today.getFullYear()===calYear;
+        const dayE=entriesByDay[day]||[];
+        const isSel=selectedDay===day;
+        const cls=['cal-cell',dayE.length?'has-entry':'',isSel?'selected':'',isToday?'today':''].join(' ');
+        const entriesHtml=dayE.map(e=>`
+          <div class="cal-entry-text">
+            <span style="width:5px;height:5px;border-radius:50%;background:${typeColors[e.type]||'#888'};display:inline-block;flex-shrink:0;margin-top:2px;"></span>
+            <span>${esc(e.title)}${e.type==='TV Show'&&e.season?` S${esc(e.season)}`:''}</span>
+          </div>`).join('');
+        const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        return `<div class="${cls}" data-date="${dateStr}" onclick="handleDayClick(${day})" style="cursor:pointer;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:${isToday?'var(--accent)':'var(--textDim)'};font-weight:${isToday?700:400};margin-bottom:2px;">${day}</div>
+          ${entriesHtml}
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  document.getElementById('tab-0').innerHTML = `
+    <div class="flex-between mb-18">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="btn-ghost" onclick="prevMonth()">‹</button>
+        <h2 style="font-family:'Lora',serif;font-size:19px;font-weight:700;color:var(--text);min-width:180px;text-align:center;">${MONTH_NAMES[calMonth]} ${calYear}</h2>
+        <button class="btn-ghost" onclick="nextMonth()">›</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-ghost" onclick="exportCalendarPNG()" title="Export calendar as PNG" style="font-size:16px;padding:6px 12px;">🖼️</button>
+        <button class="btn-primary" onclick="openEntryModal(null, null)">+ Log Entry</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);">
+        <span style="width:8px;height:8px;border-radius:50%;background:#d4603a;display:inline-block;"></span>TV Show
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);">
+        <span style="width:8px;height:8px;border-radius:50%;background:#7d9e7a;display:inline-block;"></span>Movie
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
+      ${DAY_NAMES.map(d=>`<div style="text-align:center;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textMid);letter-spacing:.1em;text-transform:uppercase;padding:5px 0;">${d}</div>`).join('')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:18px;">${calHtml}</div>`;
+}
+
+function prevMonth() { if(calMonth===0){calMonth=11;calYear--;}else calMonth--; selectedDay=null; renderWatchLog(); }
+function nextMonth() { if(calMonth===11){calMonth=0;calYear++;}else calMonth++; selectedDay=null; renderWatchLog(); }
+function selectDay(day) { selectedDay=selectedDay===day?null:day; renderWatchLog(); }
+
+function handleDayClick(day) {
+  const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  const dayE = entries.filter(e=>{
+    const d = new Date(e.date);
+    return d.getFullYear()===calYear && d.getMonth()===calMonth && d.getDate()===day;
+  });
+
+  if(dayE.length === 0) {
+    // Empty day — open log entry form directly
+    openEntryModal(null, dateStr);
+    return;
+  }
+
+  // Has entries — show popup with list
+  const existing = document.getElementById('day-popup');
+  if(existing) existing.remove();
+
+  const dateLabel = `${MONTH_NAMES[calMonth]} ${day}, ${calYear}`;
+  const rowsHtml = dayE.map(e=>`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'Lora',serif;font-size:13px;color:var(--text);">${esc(e.title)}</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);margin-top:2px;">
+          ${esc(e.platform)}${e.type==='TV Show'&&e.season?` · S${esc(e.season)}`:''}${e.episode?` · E${esc(e.episode)}`:''}${e.episodeTo?`–${esc(e.episodeTo)}`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0;margin-left:10px;">
+        <button class="btn-edit" onclick="document.getElementById('day-popup').remove();openEntryModal('${e.id}')">Edit</button>
+        <button class="delete-btn" onclick="deleteEntry('${e.id}');document.getElementById('day-popup')?.remove();renderWatchLog();">✕</button>
+      </div>
+    </div>`).join('');
+
+  const popup = document.createElement('div');
+  popup.id = 'day-popup';
+  popup.style.cssText = 'position:fixed;inset:0;background:#2a1a1066;z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  popup.innerHTML = `
+    <div style="background:var(--bgCard);border:1px solid var(--border);border-radius:20px;padding:24px;width:420px;max-width:94vw;max-height:80vh;overflow-y:auto;box-shadow:0 40px 80px #d4603a20;" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <h3 style="font-family:'Lora',serif;font-size:17px;color:var(--text);margin:0;">${dateLabel}</h3>
+          <p style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);margin:3px 0 0;">${dayE.length} entr${dayE.length===1?'y':'ies'}</p>
+        </div>
+        <button class="btn-primary" style="font-size:12px;padding:6px 12px;" onclick="document.getElementById('day-popup').remove();openEntryModal(null,'${dateStr}')">+ Add</button>
+      </div>
+      ${rowsHtml}
+      <div style="margin-top:14px;text-align:right;">
+        <button class="btn-ghost" onclick="document.getElementById('day-popup').remove()">Close</button>
+      </div>
+    </div>`;
+  popup.addEventListener('click', ()=>popup.remove());
+  document.body.appendChild(popup);
+}
+
+// ── TAB 1: WATCHING ───────────────────────────────────────────────────────────
+let watchingView = 'card';
+let filterWatchingPlatform = 'all';
+let filterWatchingStatus = 'all';
+
+function renderWatching() {
+  let active = ongoing.filter(o=>!o.completed&&!o.givenUp);
+
+  // Get unique platforms for filter pills
+  const platforms = [...new Set(active.map(o=>o.platform).filter(Boolean))].sort();
+
+  // Apply filters
+  if(filterWatchingPlatform !== 'all') active = active.filter(o=>o.platform===filterWatchingPlatform);
+  if(filterWatchingStatus === 'airing') active = active.filter(o=>(o.airingStatus||'airing')==='airing');
+  else if(filterWatchingStatus === 'ended') active = active.filter(o=>o.airingStatus==='ended');
+  if(searchWatching) active = active.filter(o=>o.title.toLowerCase().includes(searchWatching.toLowerCase()));
+
+  // Sort by title
+  active.sort((a,b)=>a.title.localeCompare(b.title));
+
+  // Split into airing vs ended
+  const makeShowCard = (o) => {
+    const total=parseInt(o.totalEp)||0,current=parseInt(o.currentEp)||0;
+    const pct=total>0?Math.min(100,Math.round(current/total*100)):0;
+    return `<div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="font-family:'Lora',serif;font-size:16px;color:var(--text);margin-bottom:4px;">${esc(o.title)}</div>
+              <div style="display:flex;gap:7px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">
+                <span class="platform-badge">${esc(o.platform)}</span>
+                <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">Season ${esc(o.season)}</span>
+              </div>
+              <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);margin-bottom:3px;">
+                Ep <span style="color:var(--accent);font-weight:600;">${esc(o.currentEp)||'?'}</span>
+                ${o.totalEp?` of <span style="color:var(--text);">${esc(o.totalEp)}</span>`:''}
+                ${total>0&&current>0?`<span style="color:var(--textDim);margin-left:5px;">${pct}%</span>`:''}
+              </div>
+              ${total>0?`<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%;"></div></div>`:''}
+              ${o.notes?`<p style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);margin-top:5px;">${esc(o.notes)}</p>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-left:8px;">
+              <button class="btn-edit" onclick="openOngoingModal('${o.id}')">Edit</button>
+              <button class="delete-btn" onclick="deleteOngoing('${o.id}')">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <hr class="divider"/>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn-complete" onclick="markCompleted('${o.id}')">✓ Mark Season Complete</button>
+        <button class="btn-giveup" onclick="markGiveUp('${o.id}')">💔 Give Up</button>
+      </div>
+    </div>`;
+  };
+
+  const makeShowRow = (o, i) => {
+    const total=parseInt(o.totalEp)||0,current=parseInt(o.currentEp)||0;
+    const pct=total>0?Math.min(100,Math.round(current/total*100)):0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--bgCard);">
+      <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);width:20px;text-align:right;flex-shrink:0;">${i+1}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+          <span style="font-family:'Lora',serif;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.title)}</span>
+          <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">S${esc(o.season)}</span>
+          <span class="platform-badge">${esc(o.platform)}</span>
+        </div>
+        ${total>0?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <div class="progress-bar-bg" style="flex:1;margin:0;"><div class="progress-bar-fill" style="width:${pct}%;"></div></div>
+          <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);white-space:nowrap;">Ep ${current}/${total} · ${pct}%</span>
+        </div>`:`<div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);margin-top:2px;">Ep ${esc(o.currentEp)||'?'}</div>`}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0;">
+        <button class="btn-complete" style="font-size:10px;padding:3px 8px;" onclick="markCompleted('${o.id}')">✓</button>
+        <button class="btn-giveup" style="font-size:10px;padding:3px 8px;" onclick="markGiveUp('${o.id}')">💔</button>
+        <button class="btn-edit" onclick="openOngoingModal('${o.id}')">Edit</button>
+        <button class="delete-btn" onclick="deleteOngoing('${o.id}')">✕</button>
+      </div>
+    </div>`;
+  };
+
+  const makeSection = (items, label, icon, accentColor) => {
+    if(items.length === 0) return '';
+    const content = watchingView==='list'
+      ? `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">${items.map(makeShowRow).join('')}</div>`
+      : `<div class="grid-auto">${items.map(makeShowCard).join('')}</div>`;
+    return `<div style="margin-bottom:28px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+        <span style="font-family:'Lora',serif;font-size:17px;font-weight:700;color:var(--text);">${label}</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);">${items.length} show${items.length!==1?'s':''}</span>
+      </div>
+      ${content}
+    </div>`;
+  };
+
+  const airing = active.filter(o=>(o.airingStatus||'airing')==='airing');
+  const ended  = active.filter(o=>o.airingStatus==='ended');
+
+  const sectionsHtml = active.length===0
+    ? '<div style="text-align:center;padding:50px 0;color:var(--textDim);font-family:\'DM Sans\',sans-serif;">No shows match this filter.</div>'
+    : makeSection(airing,'Ongoing','') + makeSection(ended,'Released','');
+
+  const iconBtn = (isActive, icon, onclick) =>
+    `<button onclick="${onclick}" style="background:${isActive?'var(--accent)':'var(--bgCard)'};color:${isActive?'#fff':'var(--textMid)'};border:1px solid ${isActive?'var(--accent)':'var(--border)'};border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;">${icon}</button>`;
+
+  const pill = (label, isActive, onclick) =>
+    `<span onclick="${onclick}" style="cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1.5px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'var(--bgCard)'};color:${isActive?'#fff':'var(--textMid)'};white-space:nowrap;">${label}</span>`;
+
+  const platformPills = [
+    pill('All', filterWatchingPlatform==='all', "filterWatchingPlatform='all';renderWatching();"),
+    ...platforms.map(p => pill(p, filterWatchingPlatform===p, `filterWatchingPlatform='${p}';renderWatching();`))
+  ].join('');
+
+  const statusPills = [
+    pill('All', filterWatchingStatus==='all', "filterWatchingStatus='all';renderWatching();"),
+    pill('Ongoing', filterWatchingStatus==='airing', "filterWatchingStatus='airing';renderWatching();"),
+    pill('Released', filterWatchingStatus==='ended', "filterWatchingStatus='ended';renderWatching();"),
+  ].join('');
+
+  const _wh=document.getElementById('tab-1-header');
+  if(!_wh.firstChild){
+    _wh.innerHTML=`<div class="flex-between" style="margin-bottom:10px;"><div><h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Currently Watching</h2><p style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textDim);margin-top:2px;">Auto-synced from your log. Mark a season complete to move it to Completed.</p></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div style="position:relative;"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--textDim);font-size:13px;pointer-events:none;">🔍</span><input id="si-watching" type="text" placeholder="Search shows..." oninput="searchWatching=this.value;renderWatchingResults();" onchange="searchWatching=this.value;renderWatchingResults();" style="padding:7px 10px 7px 30px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:20px;background:var(--bgCard);color:var(--text);outline:none;width:200px;"/></div><button id="wv-card" onclick="watchingView='card';renderWatchingResults();" style="border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;">⊞</button><button id="wv-list" onclick="watchingView='list';renderWatchingResults();" style="border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;">☰</button><button class="btn-primary" onclick="openOngoingModal(null)">+ Add Show</button></div></div>`;
+  }
+  const _wvc=document.getElementById('wv-card'),_wvl=document.getElementById('wv-list');
+  if(_wvc){_wvc.style.cssText='background:'+(watchingView==='card'?'var(--accent)':'var(--bgCard)')+';color:'+(watchingView==='card'?'#fff':'var(--textMid)')+';border:1px solid '+(watchingView==='card'?'var(--accent)':'var(--border)')+';border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;';}
+  if(_wvl){_wvl.style.cssText='background:'+(watchingView==='list'?'var(--accent)':'var(--bgCard)')+';color:'+(watchingView==='list'?'#fff':'var(--textMid)')+';border:1px solid '+(watchingView==='list'?'var(--accent)':'var(--border)')+';border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;';}
+  document.getElementById('tab-1-results').innerHTML = `
+    <div style="margin-bottom:18px;">
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Platform</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">${platformPills}</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Status</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${statusPills}</div>
+    </div>
+    ${sectionsHtml}`;
+}
+
+// ── TAB 2: COMPLETED ─────────────────────────────────────────────────────────
+function renderWatchingResults() { renderWatching(); }
+function renderCompleted() {
+  let allCompleted = ongoing.filter(o=>o.completed&&o.completedDate);
+
+  // Get all years present in data for the year filter
+  const allYears = [...new Set(allCompleted.map(o=>o.completedDate.slice(0,4)))].sort((a,b)=>b-a);
+
+  // Apply year/month filter
+  let completedItems = allCompleted;
+  if(filterCompletedYear !== 'all') {
+    completedItems = completedItems.filter(o=>o.completedDate.startsWith(filterCompletedYear));
+    if(filterCompletedMonth !== 'all') {
+      completedItems = completedItems.filter(o=>o.completedDate.slice(5,7)===String(filterCompletedMonth).padStart(2,'0'));
+    }
+  }
+
+  // Get months present within selected year for month pills
+  const monthsInYear = filterCompletedYear !== 'all'
+    ? [...new Set(allCompleted.filter(o=>o.completedDate.startsWith(filterCompletedYear)).map(o=>parseInt(o.completedDate.slice(5,7))))].sort((a,b)=>a-b)
+    : [];
+
+  if(searchCompleted) completedItems = completedItems.filter(o=>o.title.toLowerCase().includes(searchCompleted.toLowerCase()));
+
+  // Filter by type if set
+  if(sortCompleted==='tv') completedItems = completedItems.filter(o=>o.completedType!=='Movie');
+  else if(sortCompleted==='movie') completedItems = completedItems.filter(o=>o.completedType==='Movie');
+  else if(sortCompleted==='rating-desc') completedItems = [...completedItems].sort((a,b)=>(b.score||0)-(a.score||0));
+  else if(sortCompleted==='platform') completedItems = [...completedItems].sort((a,b)=>a.platform.localeCompare(b.platform));
+  else if(sortCompleted==='title') completedItems = [...completedItems].sort((a,b)=>a.title.localeCompare(b.title));
+  // default: group by month (Jan→Dec order within each year)
+
+  const completedCardHtml = (o) => {
+    const isMovie=o.completedType==='Movie';
+    return `<div class="card" style="border-color:${isMovie?'var(--matcha)':'#f0907044'};background:#fff8f5;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;">
+                <span style="font-family:'Lora',serif;font-size:14px;color:var(--text);">${esc(o.title)}</span>
+                <span class="${isMovie?'pill-movie':'pill-tv'}">${isMovie?'Movie':'TV Show'}</span>
+              </div>
+              <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px;">
+                <span class="platform-badge">${esc(o.platform)}</span>
+                ${!isMovie?`<span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">Season ${esc(o.season)}</span>`:''}
+                ${o.totalEp&&!isMovie?`<span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">${esc(o.totalEp)} eps</span>`:''}
+              </div>
+              <div style="font-family:'DM Sans',sans-serif;font-size:13px;margin-top:6px;">
+                ${o.score
+                  ? `${'★'.repeat(Math.round(o.score/2))}${'☆'.repeat(5-Math.round(o.score/2))} <span style="color:var(--textMid);font-size:11px;">${o.score}/10</span>`
+                  : `<span style="color:var(--textDim);font-size:11px;">☆☆☆☆☆ No rating yet</span>`}
+              </div>
+              ${o.review?`
+                <p id="review-${o.id}" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);margin-top:4px;font-style:italic;display:none;">"${esc(o.review)}"</p>
+                <button onclick="const el=document.getElementById('review-${o.id}');const show=el.style.display==='none';el.style.display=show?'block':'none';this.textContent=show?'▲ Hide note':'▼ Show note';" style="background:none;border:none;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);cursor:pointer;padding:2px 0;margin-top:2px;">▼ Show note</button>
+              `:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-left:8px;">
+              <button class="btn-edit" onclick="openOngoingModal('${o.id}')">Edit</button>
+              <button class="delete-btn" onclick="deleteOngoing('${o.id}')">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  // Always group by month, sorted Jan→Dec within each year
+  const byMonth = {};
+  completedItems.forEach(o=>{
+    const [y,m]=o.completedDate.split('-').map(Number);
+    const key=`${y}-${String(m).padStart(2,'0')}`;
+    if(!byMonth[key]) byMonth[key]={label:`${MONTH_NAMES[m-1]} ${y}`,items:[],year:y,month:m};
+    byMonth[key].items.push(o);
+  });
+  // Sort years descending, months Jan(1)→Dec(12) within each year, or reversed if date-desc
+  const keys = Object.keys(byMonth).sort((a,b)=>{
+    const [ay,am]=a.split('-').map(Number);
+    const [by2,bm]=b.split('-').map(Number);
+    if(ay!==by2) return by2-ay; // newer year first always
+    return sortCompleted==='date-desc' ? bm-am : am-bm; // Dec→Jan or Jan→Dec within year
+  });
+
+  const dropdownOptions = [
+    ['default','Date (Jan → Dec)'],
+    ['date-desc','Date (Dec → Jan)'],
+    ['title','Title'],
+    ['platform','Platform'],
+    ['rating-desc','Rating'],
+    ['tv','TV Shows only'],
+    ['movie','Movies only'],
+  ];
+  const sortLabel = dropdownOptions.find(([v])=>v===sortCompleted)?.[1] || 'Date (Jan → Dec)';
+
+  const html = completedItems.length===0
+    ? '<div style="text-align:center;padding:50px 0;color:var(--textDim);font-family:\'DM Sans\',sans-serif;">No completed shows yet.</div>'
+    : keys.map(mk=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+          <span class="month-heading" style="margin:0;padding:0;border:none;">${byMonth[mk].label}</span>
+        </div>
+        <div class="grid-auto-sm mb-8">${byMonth[mk].items.map(completedCardHtml).join('')}</div>`).join('');
+
+  const completedListRowHtml = (o, i) => {
+    const isMovie = o.completedType==='Movie';
+    const stars = o.score ? '★'.repeat(Math.round(o.score/2))+'☆'.repeat(5-Math.round(o.score/2)) : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bgCard);border-radius:0;">
+      <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);width:20px;text-align:right;flex-shrink:0;">${i+1}</span>
+      <span class="${isMovie?'pill-movie':'pill-tv'}" style="flex-shrink:0;">${isMovie?'Movie':'TV'}</span>
+      <span style="font-family:'Lora',serif;font-size:13px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.title)}${!isMovie?` <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);">S${esc(o.season)}</span>`:''}</span>
+      <span class="platform-badge" style="flex-shrink:0;">${esc(o.platform)}</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--accent);flex-shrink:0;min-width:70px;text-align:right;">${stars||'☆☆☆☆☆'}</span>
+      <button class="btn-edit" style="flex-shrink:0;" onclick="openOngoingModal('${o.id}')">Edit</button>
+      <button class="delete-btn" style="flex-shrink:0;" onclick="deleteOngoing('${o.id}')">✕</button>
+    </div>`;
+  };
+
+  const completedListByMonth = keys.map(mk=>{
+    const {label,items:mItems} = byMonth[mk];
+    return `<div style="margin-bottom:24px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+        <span class="month-heading" style="margin:0;padding:0;border:none;">${label}</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);">${mItems.length} show${mItems.length!==1?'s':''}</span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+        ${mItems.map(completedListRowHtml).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const iconBtn = (active, icon, onclick) =>
+    `<button onclick="${onclick}" style="background:${active?'var(--accent)':'var(--bgCard)'};color:${active?'#fff':'var(--textMid)'};border:1px solid ${active?'var(--accent)':'var(--border)'};border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;">${icon}</button>`;
+
+  const pillStyle = (active) => `cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'var(--accent)':'var(--bgCard)'};color:${active?'#fff':'var(--textMid)'};transition:all .15s;`;
+
+  const yearFilterHtml = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:${filterCompletedYear!=='all'&&monthsInYear.length>1?'8px':'14px'};">
+      <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Year:</span>
+      <button onclick="filterCompletedYear='all';filterCompletedMonth='all';renderCompleted();" style="${pillStyle(filterCompletedYear==='all')}">All</button>
+      ${allYears.map(y=>`<button onclick="filterCompletedYear='${y}';filterCompletedMonth='all';renderCompleted();" style="${pillStyle(filterCompletedYear===y)}">${y}</button>`).join('')}
+    </div>
+    ${filterCompletedYear!=='all'&&monthsInYear.length>1?`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+      <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Month:</span>
+      <button onclick="filterCompletedMonth='all';renderCompleted();" style="${pillStyle(filterCompletedMonth==='all')}">All</button>
+      ${monthsInYear.map(m=>`<button onclick="filterCompletedMonth=${m};renderCompleted();" style="${pillStyle(filterCompletedMonth===m)}">${MONTH_NAMES[m-1].slice(0,3)}</button>`).join('')}
+    </div>`:''}`;
+
+  const _ch=document.getElementById('tab-2-header');
+  if(!_ch.firstChild){
+    _ch.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;"><div id="ch-left"></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><div style="position:relative;"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--textDim);font-size:13px;pointer-events:none;">🔍</span><input id="si-completed" type="text" placeholder="Search shows..." oninput="searchCompleted=this.value;renderCompletedResults();" onchange="searchCompleted=this.value;renderCompletedResults();" style="padding:7px 10px 7px 30px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:20px;background:var(--bgCard);color:var(--text);outline:none;width:200px;"/></div><button id="cv-card" onclick="completedView='card';renderCompletedResults();" style="border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;">⊞</button><button id="cv-list" onclick="completedView='list';renderCompletedResults();" style="border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;">☰</button><button class="btn-ghost" onclick="exportCompletedList()" title="Export monthly completed list" style="font-size:16px;padding:6px 12px;">🖼️</button><span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;">Sort:</span><select id="cv-sort" onchange="setSortCompleted(this.value)" style="font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bgCard);color:var(--text);cursor:pointer;outline:none;"></select></div></div>`;
+  }
+  const _chl=document.getElementById('ch-left');
+  if(_chl) _chl.innerHTML=`<h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Completed</h2><div style="display:flex;gap:10px;margin-top:6px;align-items:center;"><span style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textDim);">${completedItems.length}${filterCompletedYear!=='all'?' this '+(filterCompletedMonth!=='all'?MONTH_NAMES[filterCompletedMonth-1]+' ':'')+filterCompletedYear:'  total'}</span><span class="pill-tv" style="cursor:pointer;opacity:${sortCompleted==='tv'?1:0.5};" onclick="setSortCompleted('${sortCompleted==='tv'?'default':'tv'}')">TV Show</span><span class="pill-movie" style="cursor:pointer;opacity:${sortCompleted==='movie'?1:0.5};" onclick="setSortCompleted('${sortCompleted==='movie'?'default':'movie'}')">Movie</span></div>`;
+  const _cvc=document.getElementById('cv-card'),_cvl=document.getElementById('cv-list');
+  if(_cvc){_cvc.style.cssText='background:'+(completedView==='card'?'var(--accent)':'var(--bgCard)')+';color:'+(completedView==='card'?'#fff':'var(--textMid)')+';border:1px solid '+(completedView==='card'?'var(--accent)':'var(--border)')+';border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;';}
+  if(_cvl){_cvl.style.cssText='background:'+(completedView==='list'?'var(--accent)':'var(--bgCard)')+';color:'+(completedView==='list'?'#fff':'var(--textMid)')+';border:1px solid '+(completedView==='list'?'var(--accent)':'var(--border)')+';border-radius:6px;padding:5px 9px;cursor:pointer;font-size:14px;line-height:1;';}
+  const _cvs=document.getElementById('cv-sort');
+  if(_cvs&&!_cvs.options.length){dropdownOptions.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;_cvs.appendChild(o);});}
+  if(_cvs) _cvs.value=sortCompleted;
+  document.getElementById('tab-2-results').innerHTML = `
+    ${yearFilterHtml}
+    ${completedView==='list'
+      ? (completedItems.length===0 ? '<div style="text-align:center;padding:50px 0;color:var(--textDim);font-family:\'DM Sans\',sans-serif;">No completed shows yet.</div>' : completedListByMonth)
+      : html}`;
+}
+
+// ── TAB 3: GIVEN UP ───────────────────────────────────────────────────────────
+function renderCompletedResults() { renderCompleted(); }
+function renderGivenUp() {
+  let items = ongoing.filter(o=>o.givenUp);
+  if(sortGivenUp==='title') items.sort((a,b)=>a.title.localeCompare(b.title));
+  else if(sortGivenUp==='platform') items.sort((a,b)=>a.platform.localeCompare(b.platform));
+  if(searchGivenUp) items = items.filter(o=>o.title.toLowerCase().includes(searchGivenUp.toLowerCase()));
+  const html = items.length===0
+    ? '<div style="text-align:center;padding:50px 0;color:var(--textDim);font-family:\'DM Sans\',sans-serif;">No abandoned shows. Good going! 💪</div>'
+    : `<div class="grid-auto">${items.map(o=>`
+        <div class="card" style="border-color:var(--giveUpBorder);background:#fdf4ff;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-family:'Lora',serif;font-size:16px;color:var(--text);margin-bottom:4px;">${esc(o.title)}</div>
+              <div style="display:flex;gap:7px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">
+                <span class="platform-badge">${esc(o.platform)}</span>
+                <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">Season ${esc(o.season)}</span>
+                <span class="pill-giveup">Given Up</span>
+              </div>
+              <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--giveUp);">
+                Stopped at Ep ${esc(o.currentEp)||'?'}${o.givenUpDate?` · ${fmt(toISO(o.givenUpDate))}`:''}
+              </div>
+              ${o.givenUpReason?`<p style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);margin-top:4px;font-style:italic;">"${esc(o.givenUpReason)}"</p>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-left:8px;">
+              <button class="btn-edit" onclick="undoGiveUp('${o.id}')">↩ Undo</button>
+              <button class="delete-btn" onclick="deleteOngoing('${o.id}')">✕</button>
+            </div>
+          </div>
+        </div>`).join('')}</div>`;
+
+  const _gh=document.getElementById('tab-3-header');
+  if(!_gh.firstChild){
+    _gh.innerHTML=`<div class="flex-between" style="margin-bottom:8px;"><div><h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Given Up</h2><p style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textDim);margin-top:2px;">Shows you abandoned. Click ↩ Undo to move back to Watching.</p></div><div style="position:relative;"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--textDim);font-size:13px;pointer-events:none;">🔍</span><input id="si-givenup" type="text" placeholder="Search shows..." oninput="searchGivenUp=this.value;renderGivenUpResults();" onchange="searchGivenUp=this.value;renderGivenUpResults();" style="padding:7px 10px 7px 30px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:20px;background:var(--bgCard);color:var(--text);outline:none;width:200px;"/></div></div>`;
+  }
+  document.getElementById('tab-3-results').innerHTML = `
+    ${sortBar([['title','Title'],['platform','Platform']], sortGivenUp, 'setSortGivenUp')}
+    ${html}`;
+}
+
+function renderGivenUpResults() { renderGivenUp(); }
+// ── TAB 4: WISHLIST ───────────────────────────────────────────────────────────
+let filterWishPlatform = 'all';
+let filterWishType = 'all';
+let searchWatching = '';
+let searchCompleted = '';
+let searchGivenUp = '';
+let searchWishlist = '';
+
+function renderWishlist() {
+  let sorted = [...wishlist].sort((a,b)=>a.title.localeCompare(b.title));
+
+  // Get unique platforms
+  const platforms = [...new Set(sorted.map(w=>w.platform).filter(Boolean))].sort();
+
+  // Apply filters
+  if(filterWishPlatform !== 'all') sorted = sorted.filter(w=>w.platform===filterWishPlatform);
+  if(filterWishType !== 'all') sorted = sorted.filter(w=>w.type===filterWishType);
+  if(searchWishlist) sorted = sorted.filter(w=>w.title.toLowerCase().includes(searchWishlist.toLowerCase()));
+
+  const pill = (label, isActive, onclick) =>
+    `<span onclick="${onclick}" style="cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1.5px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'var(--bgCard)'};color:${isActive?'#fff':'var(--textMid)'};white-space:nowrap;">${label}</span>`;
+
+  const platformPills = [
+    pill('All', filterWishPlatform==='all', "filterWishPlatform='all';renderWishlist();"),
+    ...platforms.map(p => pill(p, filterWishPlatform===p, `filterWishPlatform='${p}';renderWishlist();`))
+  ].join('');
+
+  const typePills = [
+    pill('All', filterWishType==='all', "filterWishType='all';renderWishlist();"),
+    pill('TV Show', filterWishType==='TV Show', "filterWishType='TV Show';renderWishlist();"),
+    pill('Movie', filterWishType==='Movie', "filterWishType='Movie';renderWishlist();"),
+  ].join('');
+
+  const html = sorted.length===0
+    ? '<div style="text-align:center;padding:50px 0;color:var(--textDim);font-family:\'DM Sans\',sans-serif;">Nothing matches this filter.</div>'
+    : `<div class="grid-auto">${sorted.map(w=>`
+        <div class="card" style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Lora',serif;font-size:15px;color:var(--text);margin-bottom:4px;">${esc(w.title)}</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              ${w.platform?`<span class="platform-badge">${esc(w.platform)}</span>`:''}
+              <span class="${w.type==='Movie'?'pill-movie':'pill-tv'}">${esc(w.type)}</span>
+              ${w.notes?`<span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);">· ${esc(w.notes)}</span>`:''}
+            </div>
+          </div>
+          <button class="delete-btn" style="margin-left:8px;flex-shrink:0;" onclick="deleteWish('${w.id}')">✕</button>
+        </div>`).join('')}</div>`;
+
+  const _wlh=document.getElementById('tab-4-header');
+  if(!_wlh.firstChild){
+    _wlh.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;"><h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Wishlist</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div style="position:relative;"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--textDim);font-size:13px;pointer-events:none;">🔍</span><input id="si-wishlist" type="text" placeholder="Search wishlist..." oninput="searchWishlist=this.value;renderWishlistResults();" onchange="searchWishlist=this.value;renderWishlistResults();" style="padding:7px 10px 7px 30px;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:20px;background:var(--bgCard);color:var(--text);outline:none;width:200px;"/></div><button class="btn-primary" onclick="openWishModal()">+ Add to Wishlist</button></div></div>`;
+  }
+  document.getElementById('tab-4-results').innerHTML = `
+    <div style="margin-bottom:18px;">
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Platform</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">${platformPills}</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Type</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${typePills}</div>
+    </div>
+    ${html}`;
+}
+
+// ── ENTRY MODAL ───────────────────────────────────────────────────────────────
+function fillPickWatching() {
+  const sel = document.getElementById('ef-pick-watching');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Type manually —</option>';
+  const active = ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie')
+    .sort((a,b)=>a.title.localeCompare(b.title));
+  active.forEach(o=>{
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = o.title + (o.season ? ' · S' + o.season : '');
+    sel.appendChild(opt);
+  });
+}
+
+function onPickWatching() {
+  const sel = document.getElementById('ef-pick-watching');
+  const id = sel.value;
+  if(!id) return;
+  const o = ongoing.find(x=>String(x.id)===String(id));
+  if(!o) return;
+  document.getElementById('ef-title').value = o.title;
+  document.getElementById('ef-type').value = 'TV Show';
+  fillPlatformSelect('ef-platform');
+  document.getElementById('ef-platform').value = o.platform||'Netflix';
+  document.getElementById('ef-season').value = o.season||'';
+  document.getElementById('ef-totalep').value = o.totalEp||'';
+  onTypeChange();
+  onSeasonChange();
+}
+
+function openEntryModal(editId, prefillDate) {
+  fillPlatformSelect('ef-platform');
+  fillPickWatching();
+  document.getElementById('ef-pick-watching').value = '';
+  document.getElementById('edit-entry-id').value = editId||'';
+  document.getElementById('entry-modal-title').textContent = editId ? 'Edit Entry' : 'Log Entry';
+
+  if(editId) {
+    const e = entries.find(x=>String(x.id)===String(editId));
+    if(!e) return;
+    document.getElementById('ef-title').value = e.title||'';
+    document.getElementById('ef-type').value = e.type||'TV Show';
+    document.getElementById('ef-platform').value = e.platform||'Netflix';
+    document.getElementById('ef-season').value = e.season||'';
+    document.getElementById('ef-totalep').value = e.totalEp||'';
+    document.getElementById('ef-epfrom').value = e.episode||'';
+    document.getElementById('ef-epto').value = e.episodeTo||'';
+    document.getElementById('ef-date').value = toInput(e.date);
+    document.getElementById('ef-notes').value = e.notes||'';
+  } else {
+    document.getElementById('ef-title').value = '';
+    document.getElementById('ef-type').value = 'TV Show';
+    document.getElementById('ef-platform').value = 'Netflix';
+    document.getElementById('ef-season').value = '';
+    document.getElementById('ef-totalep').value = '';
+    document.getElementById('ef-epfrom').value = '';
+    document.getElementById('ef-epto').value = '';
+    document.getElementById('ef-date').value = prefillDate || (selectedDay ? `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}` : todayStr());
+    document.getElementById('ef-notes').value = '';
+    document.getElementById('ef-epfrom-hint').classList.add('hidden');
+  }
+  onTypeChange();
+  onSeasonChange();
+  document.getElementById('modal-entry').classList.remove('hidden');
+}
+
+function onOngoingTypeChange() {
+  const isMovie = document.getElementById('of-type').value === 'Movie';
+  document.getElementById('of-tv-fields').classList.toggle('hidden', isMovie);
+  // Also hide airing status for movies
+  const airingRow = document.getElementById('of-airing-row');
+  if(airingRow) airingRow.classList.toggle('hidden', isMovie);
+}
+
+function onTypeChange() {
+  const isTV = document.getElementById('ef-type').value === 'TV Show';
+  document.getElementById('ef-tv-fields').classList.toggle('hidden', !isTV);
+}
+
+function onTitleChange() { onSeasonChange(); }
+function onSeasonChange() {
+  const title = toTitle(document.getElementById('ef-title').value.trim());
+  const seasonInput = document.getElementById('ef-season').value;
+  const season = seasonInput || '1';
+  const editId = document.getElementById('edit-entry-id').value;
+  const isTV = document.getElementById('ef-type').value === 'TV Show';
+  const hint = document.getElementById('ef-platform-hint');
+  const epHint = document.getElementById('ef-epfrom-hint');
+
+  if(!editId && title && isTV) {
+    // Platform lock
+    const locked = getFirstPlatform(title, season);
+    if(locked) {
+      document.getElementById('ef-platform').value = locked;
+      hint.textContent = `📌 Locked to ${locked} from first entry`;
+      hint.classList.remove('hidden');
+    } else { hint.classList.add('hidden'); }
+
+    // Auto-fill last watched episode
+    const titleLower = title.trim().toLowerCase();
+    const matching = entries.filter(e =>
+      e.title.trim().toLowerCase() === titleLower &&
+      String(e.season||'') === String(season) &&
+      e.type === 'TV Show'
+    );
+    if(matching.length) {
+      const last = matching.sort((a,b) => {
+        const epA = parseInt(b.episodeTo || b.episode || '0');
+        const epB = parseInt(a.episodeTo || a.episode || '0');
+        return epA - epB;
+      })[0];
+      const lastEp = parseInt(last.episodeTo || last.episode || '0');
+      if(lastEp > 0) {
+        const nextEp = lastEp + 1;
+        const epFromField = document.getElementById('ef-epfrom');
+        if(!epFromField.value) epFromField.value = nextEp;
+        epHint.innerHTML = `▶ Last watched: Ep <strong>${lastEp}</strong> — <span style="cursor:pointer;color:var(--accent);text-decoration:underline;" onclick="document.getElementById('ef-epfrom').value=${nextEp}">continue from Ep ${nextEp}</span>`;
+        epHint.classList.remove('hidden');
+      } else { epHint.classList.add('hidden'); }
+    } else { epHint.classList.add('hidden'); }
+  } else {
+    hint.classList.add('hidden');
+    epHint.classList.add('hidden');
+  }
+}
+
+function getFirstPlatform(titleKey, season) {
+  const titleLower = titleKey.trim().toLowerCase();
+
+  // 1. Try exact title + season match in ongoing
+  const o = ongoing.find(x=>
+    x.title.trim().toLowerCase()===titleLower &&
+    String(x.season)===String(season) &&
+    x.platform
+  );
+  if(o) return o.platform;
+
+  // 2. Try exact title + season match in log entries
+  const matching = entries.filter(e=>
+    e.title.trim().toLowerCase()===titleLower &&
+    String(e.season)===String(season) &&
+    e.platform
+  );
+  if(matching.length) return matching.sort((a,b)=>new Date(a.date)-new Date(b.date))[0].platform;
+
+  return null;
+}
+
+function saveEntry() {
+  const title = toTitle(document.getElementById('ef-title').value.trim());
+  if(!title) return;
+  const type = document.getElementById('ef-type').value;
+  const seasonVal = document.getElementById('ef-season').value;
+  const seasonErrEl = document.getElementById('ef-season-error');
+  if(type === 'TV Show' && !seasonVal) {
+    seasonErrEl.style.display = 'block';
+    document.getElementById('ef-season').style.borderColor = '#d4603a';
+    return;
+  }
+  if(seasonErrEl) { seasonErrEl.style.display = 'none'; document.getElementById('ef-season').style.borderColor = ''; }
+  const chosenDate = document.getElementById('ef-date').value;
+  const errEl = document.getElementById('ef-date-error');
+  if(chosenDate > todayStr()) {
+    errEl.style.display = 'block';
+    document.getElementById('ef-date').style.borderColor = '#d4603a';
+    return;
+  }
+  errEl.style.display = 'none';
+  document.getElementById('ef-date').style.borderColor = '';
+  const editId = document.getElementById('edit-entry-id').value;
+  const epFrom = document.getElementById('ef-epfrom').value;
+  const epTo = document.getElementById('ef-epto').value;
+  const isRange = type==='TV Show' && epFrom && epTo && parseInt(epTo)>parseInt(epFrom);
+  const season = document.getElementById('ef-season').value;
+  const lockedPlatform = !editId && type==='TV Show'
+    ? (getFirstPlatform(title, season) || document.getElementById('ef-platform').value)
+    : document.getElementById('ef-platform').value;
+
+  const entry = {
+    id: editId ? Number(editId) : Date.now(),
+    title, type, season,
+    episode: epFrom||'', episodeTo: isRange?epTo:'',
+    totalEp: document.getElementById('ef-totalep').value,
+    platform: lockedPlatform,
+    date: toISO(document.getElementById('ef-date').value),
+    notes: document.getElementById('ef-notes').value
+  };
+
+  if(editId) {
+    entries = entries.map(e=>String(e.id)===editId?entry:e);
+  } else {
+    entries.push(entry);
+    if(type === 'Movie') {
+      // For movies, create a completed ongoing record only if one doesn't already exist
+      const movieKey = title.trim().toLowerCase();
+      const alreadyExists = ongoing.some(o => o.title.trim().toLowerCase()===movieKey && o.completedType==='Movie');
+      if(!alreadyExists) {
+        const movieId = Date.now() + Math.random();
+        ongoing.push({
+          id: movieId, title, platform: lockedPlatform, season: '',
+          currentEp: '', totalEp: '', completed: true,
+          completedDate: document.getElementById('ef-date').value,
+          completedType: 'Movie', notes: '', score: null, review: '',
+          givenUp: false, givenUpDate: '', airingStatus: null
+        });
+        save('ongoing', ongoing);
+        removeFromWishlist(title);
+        setTimeout(()=>openReviewModal({id: movieId, title, season: '', isMovie: true}), 300);
+      }
+    } else {
+      upsertOngoing(title, lockedPlatform, type, season,
+        parseInt(epTo||epFrom||'0')||null,
+        document.getElementById('ef-totalep').value,
+        document.getElementById('ef-date').value);
+    }
+  }
+  save('entries', entries);
+  closeModal('modal-entry');
+  rerender();
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(e=>String(e.id)!==String(id));
+  save('entries', entries);
+  rerender();
+}
+
+// ── ONGOING UPSERT ────────────────────────────────────────────────────────────
+function upsertOngoing(title, platform, type, season, epNum, totalEp, entryDate) {
+  if(type!=='TV Show') return;
+  // Don't create a TV Show record if a Movie with the same title already exists
+  if(ongoing.some(o=>o.title.trim().toLowerCase()===title.trim().toLowerCase()&&o.completedType==='Movie')) return;
+  const key = `${title.trim().toLowerCase()}||${season}`;
+  const existing = ongoing.find(o=>`${o.title.trim().toLowerCase()}||${o.season}`===key);
+  let autoComplete = null;
+
+  if(existing) {
+    ongoing = ongoing.map(o=>{
+      if(`${o.title.trim().toLowerCase()}||${o.season}`!==key) return o;
+      const newEp = epNum ? Math.max(parseInt(o.currentEp)||0, epNum) : o.currentEp;
+      const newTotal = totalEp||o.totalEp;
+      const shouldComplete = newTotal && parseInt(newEp)>=parseInt(newTotal) && !o.completed;
+      if(shouldComplete) autoComplete = {id:o.id,title:o.title,season:o.season};
+      return {...o, currentEp:String(newEp), totalEp:newTotal||o.totalEp, platform,
+        completed: shouldComplete||o.completed,
+        completedDate: shouldComplete?(entryDate||todayStr()):o.completedDate,
+        airingStatus: shouldComplete ? null : o.airingStatus};
+    });
+  } else {
+    const shouldComplete = totalEp && epNum && epNum>=parseInt(totalEp);
+    const newItem = {id:Date.now()+Math.random(), title, platform, season:String(season),
+      totalEp:totalEp||'', currentEp:epNum?String(epNum):'',
+      completed:!!shouldComplete, completedDate:shouldComplete?(entryDate||todayStr()):'',
+      completedType:'TV Show', notes:'', score:null, review:'', givenUp:false, givenUpDate:''};
+    if(shouldComplete) autoComplete = {id:newItem.id,title,season};
+    ongoing.push(newItem);
+    // Fetch poster in background for new record
+  }
+  save('ongoing', ongoing);
+  removeFromWishlist(title);
+  if(autoComplete) setTimeout(()=>openReviewModal(autoComplete), 300);
+}
+
+function removeFromWishlist(title) {
+  const key = title.trim().toLowerCase();
+  const before = wishlist.length;
+  wishlist = wishlist.filter(w => w.title.trim().toLowerCase() !== key);
+  if(wishlist.length < before) save('wishlist', wishlist);
+}
+
+// ── ONGOING MODAL ─────────────────────────────────────────────────────────────
+function openOngoingModal(editId) {
+  fillPlatformSelect('of-platform');
+  document.getElementById('edit-ongoing-id').value = editId||'';
+  document.getElementById('ongoing-modal-title').textContent = editId ? 'Edit Show' : 'Track a Show';
+  const stars = document.getElementById('of-stars');
+  stars.innerHTML = [1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="star-btn" onclick="setOngoingScore(${n})" data-n="${n}">★</button>`).join('');
+
+  if(editId) {
+    const o = ongoing.find(x=>String(x.id)===String(editId));
+    if(!o) return;
+    document.getElementById('of-title').value = o.title||'';
+    document.getElementById('of-platform').value = o.platform||'Netflix';
+    document.getElementById('of-season').value = o.season||'1';
+    document.getElementById('of-totalep').value = o.totalEp||'';
+    document.getElementById('of-currentep').value = o.currentEp||'';
+    document.getElementById('of-type').value = o.completedType||'TV Show';
+    onOngoingTypeChange();
+    document.getElementById('of-airing').value = o.airingStatus||'airing';
+    document.getElementById('of-airing').closest('div').style.display = o.completed ? 'none' : '';
+    document.getElementById('of-completed').checked = o.completed||false;
+    document.getElementById('of-completeddate').value = o.completedDate||'';
+    document.getElementById('of-notes').value = o.notes||'';
+    document.getElementById('of-review').value = o.review||'';
+    setOngoingScore(o.score||0);
+    onCompletedChange();
+    document.getElementById('of-review-section').classList.toggle('hidden', !o.completed);
+    // Show existing poster immediately; fetch fresh one always to keep updated
+  } else {
+    document.getElementById('of-title').value='';
+    document.getElementById('of-platform').value='Netflix';
+    document.getElementById('of-season').value='1';
+    document.getElementById('of-totalep').value='';
+    document.getElementById('of-currentep').value='';
+    document.getElementById('of-type').value='TV Show';
+    onOngoingTypeChange();
+    document.getElementById('of-airing').value='airing';
+    document.getElementById('of-airing').closest('div').style.display = '';
+    document.getElementById('of-completed').checked=false;
+    document.getElementById('of-completeddate').value='';
+    document.getElementById('of-notes').value='';
+    document.getElementById('of-review').value='';
+    setOngoingScore(0);
+    onCompletedChange();
+  }
+  document.getElementById('modal-ongoing').classList.remove('hidden');
+}
+
+let ongoingScore = 0;
+function setOngoingScore(n) {
+  ongoingScore = n;
+  document.querySelectorAll('#of-stars .star-btn').forEach(b=>{
+    b.classList.toggle('on', parseInt(b.dataset.n)<=n);
+  });
+  document.getElementById('of-score-label').textContent = n>0?`${n}/10`:'';
+}
+
+function onCompletedChange() {
+  const checked = document.getElementById('of-completed').checked;
+  document.getElementById('of-completed-date-row').classList.toggle('hidden', !checked);
+  document.getElementById('of-review-section').classList.toggle('hidden', !checked);
+  document.getElementById('of-airing').closest('div').style.display = checked ? 'none' : '';
+  if(checked && !document.getElementById('of-completeddate').value)
+    document.getElementById('of-completeddate').value = todayStr();
+}
+
+function saveOngoing() {
+  const title = toTitle(document.getElementById('of-title').value.trim());
+  if(!title) return;
+  const editId = document.getElementById('edit-ongoing-id').value;
+  const total = parseInt(document.getElementById('of-totalep').value)||0;
+  const current = parseInt(document.getElementById('of-currentep').value)||0;
+  const isCompleted = document.getElementById('of-completed').checked;
+  const shouldAutoComplete = total>0 && current>=total && !isCompleted;
+
+  let completedDate = document.getElementById('of-completeddate').value;
+  if(shouldAutoComplete) {
+    const key = title.trim().toLowerCase();
+    const season = document.getElementById('of-season').value;
+    const matching = entries.filter(e=>e.title.trim().toLowerCase()===key&&String(e.season)===String(season));
+    completedDate = matching.length
+      ? toInput(matching.sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date)
+      : todayStr();
+  }
+
+  const item = {
+    title,
+    platform: document.getElementById('of-platform').value,
+    season: document.getElementById('of-season').value,
+    totalEp: document.getElementById('of-totalep').value,
+    currentEp: document.getElementById('of-currentep').value,
+    completedType: document.getElementById('of-type').value,
+    airingStatus: (isCompleted||shouldAutoComplete) ? null : document.getElementById('of-airing').value,
+    completed: isCompleted||shouldAutoComplete,
+    completedDate: (isCompleted||shouldAutoComplete)?completedDate:'',
+    notes: document.getElementById('of-notes').value,
+    score: ongoingScore||null,
+    review: document.getElementById('of-review').value,
+    givenUp: false, givenUpDate: ''
+  };
+
+  if(editId) {
+    const old = ongoing.find(o=>String(o.id)===editId);
+    ongoing = ongoing.map(o=>String(o.id)===editId?{...old,...item}:o);
+    // Cascade title and platform changes to log entries (use old title as lookup key)
+    const oldKey = (old.title||'').trim().toLowerCase();
+    const oldSeason = String(old.season||'');
+    entries = entries.map(e=>{
+      if(e.title.trim().toLowerCase()!==oldKey) return e;
+      if(item.completedType!=='Movie' && String(e.season||'')!==oldSeason) return e;
+      return {...e, title, platform:item.platform};
+    });
+    save('entries', entries);
+    if(shouldAutoComplete) setTimeout(()=>openReviewModal({id:old.id,title,season:item.season}),200);
+  } else {
+    const newId = Date.now();
+    ongoing.push({id:newId,...item});
+    if(shouldAutoComplete) setTimeout(()=>openReviewModal({id:newId,title,season:item.season}),200);
+  }
+  save('ongoing', ongoing);
+  removeFromWishlist(title);
+  closeModal('modal-ongoing');
+  rerender();
+}
+
+function deleteOngoing(id) {
+  ongoing = ongoing.filter(o=>String(o.id)!==String(id));
+  save('ongoing', ongoing);
+  rerender();
+}
+
+function markCompleted(id) {
+  ongoing = ongoing.map(o=>{
+    if(String(o.id)!==String(id)) return o;
+    const key=o.title.trim().toLowerCase();
+    const matching=entries.filter(e=>e.title.trim().toLowerCase()===key&&String(e.season)===String(o.season));
+    const lastDate=matching.length?toInput(matching.sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date):todayStr();
+    setTimeout(()=>openReviewModal({id:o.id,title:o.title,season:o.season}),200);
+    return {...o,completed:true,givenUp:false,completedDate:lastDate,airingStatus:null};
+  });
+  save('ongoing', ongoing);
+  rerender();
+}
+
+let giveUpTargetId = null;
+const GIVEUP_REASONS = ['Too slow','Lost interest','Too long','Bad writing','Not my taste','No time','Waiting for more eps'];
+
+function markGiveUp(id) {
+  const o = ongoing.find(x=>String(x.id)===String(id));
+  if(!o) return;
+  giveUpTargetId = id;
+  document.getElementById('giveup-subtitle').textContent = `"${o.title}" — Season ${o.season}`;
+  document.getElementById('giveup-note').value = '';
+  // Render quick-pick reason buttons
+  document.getElementById('giveup-reasons').innerHTML = GIVEUP_REASONS.map(r=>
+    `<button onclick="toggleGiveupReason(this)" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--giveUpBorder);background:var(--bgCard);color:var(--giveUp);cursor:pointer;transition:all .2s;">${r}</button>`
+  ).join('');
+  document.getElementById('modal-giveup').classList.remove('hidden');
+}
+
+function toggleGiveupReason(btn) {
+  const active = btn.style.background === 'rgb(138, 106, 154)' || btn.dataset.active==='1';
+  btn.dataset.active = active ? '0' : '1';
+  btn.style.background = active ? 'var(--bgCard)' : 'var(--giveUp)';
+  btn.style.color = active ? 'var(--giveUp)' : '#fff';
+}
+
+function confirmGiveUp() {
+  if(!giveUpTargetId) return;
+  const selectedReasons = [...document.querySelectorAll('#giveup-reasons button')]
+    .filter(b=>b.dataset.active==='1').map(b=>b.textContent);
+  const note = document.getElementById('giveup-note').value.trim();
+  const reasonText = [...selectedReasons, ...(note?[note]:[])].join(' · ');
+  ongoing = ongoing.map(o=>String(o.id)===String(giveUpTargetId)
+    ? {...o, givenUp:true, completed:false, completedDate:'', givenUpDate:todayStr(), givenUpReason:reasonText}
+    : o);
+  save('ongoing', ongoing);
+  giveUpTargetId = null;
+  closeModal('modal-giveup');
+  rerender();
+}
+
+function undoGiveUp(id) {
+  ongoing = ongoing.map(o=>String(o.id)===String(id)?{...o,givenUp:false,givenUpDate:''}:o);
+  save('ongoing', ongoing);
+  rerender();
+}
+
+// ── REVIEW MODAL ──────────────────────────────────────────────────────────────
+function openReviewModal(target) {
+  reviewTarget = target;
+  reviewScore = 0;
+  const subtitle = target.isMovie
+    ? `<strong>${esc(target.title)}</strong> · Movie`
+    : `<strong>${esc(target.title)}</strong> — Season ${esc(target.season)}`;
+  document.getElementById('review-heading').textContent = target.isMovie ? 'Movie Watched! 🎬' : 'Season Complete!';
+  document.getElementById('review-subtitle').innerHTML = subtitle;
+  document.getElementById('review-comment').value = '';
+  renderReviewStars();
+  // Confetti
+  const c = document.getElementById('confetti-container');
+  c.innerHTML = ['#d4603a','#f09070','#5a8a3a','#ffd700','#e0488a'].map((col,i)=>
+    `<div class="confetti-piece" style="background:${col};left:${15+i*16}%;top:-10px;animation-delay:${i*0.1}s;"></div>`).join('');
+  document.getElementById('modal-review').classList.remove('hidden');
+}
+
+function renderReviewStars() {
+  document.getElementById('review-stars').innerHTML = [1,2,3,4,5,6,7,8,9,10].map(n=>
+    `<button class="star-btn${reviewScore>=n?' on':''}" onclick="setReviewScore(${n})">★</button>`).join('');
+  const labels = {10:'Masterpiece 🏆',9:'Masterpiece 🏆',8:'Great watch 👏',7:'Great watch 👏',6:'Pretty good 👍',5:'Pretty good 👍',4:'It was okay 😐',3:'It was okay 😐',2:'Not for me 👎',1:'Not for me 👎'};
+  document.getElementById('review-score-label').textContent = reviewScore>0?`${reviewScore}/10 · ${labels[reviewScore]}`:'';
+}
+
+function setReviewScore(n) { reviewScore=n; renderReviewStars(); }
+
+function skipReview() { reviewTarget=null; reviewScore=0; closeModal('modal-review'); }
+
+function submitReview() {
+  if(!reviewTarget) return;
+  ongoing = ongoing.map(o=>String(o.id)===String(reviewTarget.id)?{...o,score:reviewScore||null,review:document.getElementById('review-comment').value}:o);
+  save('ongoing', ongoing);
+  reviewTarget=null; reviewScore=0;
+  closeModal('modal-review');
+  rerender();
+}
+
+// ── WISHLIST MODAL ────────────────────────────────────────────────────────────
+function openWishModal() {
+  fillPlatformSelect('wf-platform', true);
+  document.getElementById('edit-wish-id').value='';
+  document.getElementById('wf-title').value='';
+  document.getElementById('wf-type').value='TV Show';
+  document.getElementById('wf-platform').value='';
+  document.getElementById('wf-notes').value='';
+  document.getElementById('modal-wish').classList.remove('hidden');
+}
+
+function renderWishlistResults() { renderWishlist(); }
+function saveWish() {
+  const title = toTitle(document.getElementById('wf-title').value.trim());
+  if(!title) return;
+  wishlist.push({id:Date.now(), title,
+    type:document.getElementById('wf-type').value,
+    platform:document.getElementById('wf-platform').value,
+    notes:document.getElementById('wf-notes').value,
+    addedDate:new Date().toISOString()});
+  save('wishlist', wishlist);
+  closeModal('modal-wish');
+  rerender();
+}
+
+function deleteWish(id) {
+  wishlist=wishlist.filter(w=>String(w.id)!==String(id));
+  save('wishlist', wishlist);
+  rerender();
+}
+
+// ── MODAL UTILS ───────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ── EXCEL EXPORT / IMPORT ─────────────────────────────────────────────────────
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const entryRows = entries.map(e=>({
+    Title:e.title,Type:e.type,Platform:e.platform,Season:e.season,
+    EpisodeFrom:e.episode,EpisodeTo:e.episodeTo,TotalEpisodes:e.totalEp,
+    Date:e.date?e.date.slice(0,10):'',Notes:e.notes
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(entryRows.length?entryRows:[{}]), 'Log Entries');
+  const ongoingRows = ongoing.map(o=>({
+    Title:o.title, Type:o.completedType||'TV Show', Platform:o.platform, Season:o.season,
+    CurrentEpisode:o.currentEp, TotalEpisodes:o.totalEp,
+    AiringStatus:o.airingStatus||'',
+    Completed:o.completed?'Yes':'No', CompletedDate:o.completedDate||'',
+    GivenUp:o.givenUp?'Yes':'No', Score:o.score||'', Review:o.review||'', Notes:o.notes||''
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ongoingRows.length?ongoingRows:[{}]), 'Watching & Completed');
+  const wishRows = wishlist.map(w=>({Title:w.title,Type:w.type,Platform:w.platform||'',Notes:w.notes||'',AddedDate:w.addedDate?w.addedDate.slice(0,10):''}));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(wishRows.length?wishRows:[{}]), 'Wishlist');
+  XLSX.writeFile(wb, `screentime-${new Date().toISOString().slice(0,10)}.xlsx`);
+  showMsg('✅ Exported!');
+}
+
+function importExcel(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const eRows = wb.Sheets['Log Entries'] ? XLSX.utils.sheet_to_json(wb.Sheets['Log Entries']) : [];
+      entries = eRows.filter(r=>r.Title).map((r,i)=>({
+        id:Date.now()+i, title:r.Title||'', type:r.Type||'TV Show', platform:r.Platform||'',
+        season:String(r.Season||''), episode:String(r.EpisodeFrom||''),
+        episodeTo:String(r.EpisodeTo||''), totalEp:String(r.TotalEpisodes||''),
+        date:r.Date?new Date(r.Date).toISOString():new Date().toISOString(), notes:r.Notes||''
+      }));
+      const oRows = wb.Sheets['Watching & Completed'] ? XLSX.utils.sheet_to_json(wb.Sheets['Watching & Completed']) : [];
+      ongoing = oRows.filter(r=>r.Title).map((r,i)=>({
+        id:Date.now()+10000+i, title:r.Title||'', platform:r.Platform||'', season:String(r.Season||''),
+        currentEp:String(r.CurrentEpisode||''), totalEp:String(r.TotalEpisodes||''),
+        airingStatus:r.AiringStatus||'',
+        completed:r.Completed==='Yes', completedDate:r.CompletedDate||'',
+        givenUp:r.GivenUp==='Yes', givenUpDate:'',
+        completedType:r.Type||'TV Show', score:r.Score||null, review:r.Review||'', notes:r.Notes||''
+      }));
+      const wRows = wb.Sheets['Wishlist'] ? XLSX.utils.sheet_to_json(wb.Sheets['Wishlist']) : [];
+      wishlist = wRows.filter(r=>r.Title).map((r,i)=>({
+        id:Date.now()+20000+i, title:r.Title||'', type:r.Type||'TV Show',
+        platform:r.Platform||'', notes:r.Notes||'',
+        addedDate:r.AddedDate?new Date(r.AddedDate).toISOString():new Date().toISOString()
+      }));
+      save('entries',entries); save('ongoing',ongoing); save('wishlist',wishlist);
+
+      // Auto-generate missing log entries from completed shows
+      let generated = 0;
+      ongoing.filter(o=>o.completed&&o.completedDate).forEach(o=>{
+        // Check if a log entry already exists for this title+season
+        const alreadyExists = entries.some(e=>
+          e.title.trim().toLowerCase()===o.title.trim().toLowerCase() &&
+          String(e.season)===String(o.season)
+        );
+        if(!alreadyExists) {
+          entries.push({
+            id: Date.now() + Math.random(),
+            title: o.title,
+            type: o.completedType||'TV Show',
+            platform: o.platform||'',
+            season: o.season||'',
+            episode: '1',
+            episodeTo: o.totalEp||o.currentEp||'',
+            totalEp: o.totalEp||'',
+            date: o.completedDate ? toISO(o.completedDate) : new Date().toISOString(),
+            notes: 'Auto-generated from Completed'
+          });
+          generated++;
+        }
+      });
+      if(generated>0) save('entries', entries);
+
+      showMsg(`✅ Imported ${ongoing.length} shows · ${entries.length} log entries (${generated} auto-generated)`);
+      rerender();
+    } catch(err) { showMsg('❌ Import failed: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
+function fixMissingEntries() {
+  let generated = 0;
+  ongoing.filter(o=>o.completed&&o.completedDate).forEach(o=>{
+    const alreadyExists = entries.some(e=>
+      e.title.trim().toLowerCase()===o.title.trim().toLowerCase() &&
+      String(e.season)===String(o.season)
+    );
+    if(!alreadyExists) {
+      entries.push({
+        id: Date.now() + Math.random(),
+        title: o.title,
+        type: o.completedType||'TV Show',
+        platform: o.platform||'',
+        season: o.season||'',
+        episode: '1',
+        episodeTo: o.totalEp||o.currentEp||'',
+        totalEp: o.totalEp||'',
+        date: o.completedDate ? toISO(o.completedDate) : new Date().toISOString(),
+        notes: 'Auto-generated from Completed'
+      });
+      generated++;
+    }
+  });
+  save('entries', entries);
+  showMsg(`✅ Generated ${generated} missing log entries`);
+  rerender();
+}
+
+// ── EXPORT COMPLETED LIST ─────────────────────────────────────────────────────
+let listSort = 'default';
+let listMonthFilter = 'all';
+let listTypeFilter = 'all';
+
+function exportCompletedList() {
+  const el = document.getElementById('completed-list-overlay');
+  if(el) el.remove();
+  listSort = 'default';
+  listMonthFilter = 'all';
+  listTypeFilter = 'all';
+  renderCompletedListOverlay();
+}
+
+async function saveListAsImage() {
+  const btn = document.getElementById('list-save-img-btn');
+  btn.textContent = '⏳ Generating…';
+  btn.disabled = true;
+
+  try {
+    let allItems = ongoing.filter(o=>o.completed&&o.completedDate);
+    if(listMonthFilter!=='all') allItems = allItems.filter(o=>{
+      const [y,m]=o.completedDate.split('-').map(Number);
+      return `${y}-${String(m).padStart(2,'0')}` === listMonthFilter;
+    });
+    if(listTypeFilter==='tv') allItems = allItems.filter(o=>o.completedType!=='Movie');
+    else if(listTypeFilter==='movie') allItems = allItems.filter(o=>o.completedType==='Movie');
+    if(listSort==='title') allItems = [...allItems].sort((a,b)=>a.title.localeCompare(b.title));
+    else if(listSort==='platform') allItems = [...allItems].sort((a,b)=>a.platform.localeCompare(b.platform));
+    else if(listSort==='rating') allItems = [...allItems].sort((a,b)=>(b.score||0)-(a.score||0));
+    else if(listSort==='type') allItems = [...allItems].sort((a,b)=>(a.completedType||'').localeCompare(b.completedType||''));
+
+    const byMonth = {};
+    allItems.forEach(o=>{
+      const [y,m]=o.completedDate.split('-').map(Number);
+      const key=`${y}-${String(m).padStart(2,'0')}`;
+      if(!byMonth[key]) byMonth[key]={label:`${MONTH_NAMES[m-1]} ${y}`,items:[]};
+      byMonth[key].items.push(o);
+    });
+    const keys = Object.keys(byMonth).sort((a,b)=>{
+      const [ay,am]=a.split('-').map(Number);
+      const [by2,bm]=b.split('-').map(Number);
+      if(ay!==by2) return by2-ay; return am-bm;
+    });
+
+    const W = 600, PAD = 36, lineH = 28, monthGap = 20;
+    let totalRows = 0;
+    keys.forEach(k=>{ totalRows += byMonth[k].items.length + 2; });
+    const H = PAD*2 + 90 + totalRows * lineH + keys.length * monthGap + 30;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+
+    ctx.fillStyle = '#fdf8f2';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#e8d8c8'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(PAD-12, PAD-12, W-PAD*2+24, H-PAD*2+24, 12); ctx.stroke();
+
+    let y = PAD + 16;
+    ctx.fillStyle = '#2a1a10'; ctx.font = 'bold 22px Georgia, serif';
+    ctx.fillText('Watch List', PAD, y); y += 22;
+
+    const titleLabel = listMonthFilter==='all' ? 'All Time' : (byMonth[keys[0]]?.label||'');
+    ctx.fillStyle = '#aaa'; ctx.font = '10px sans-serif';
+    ctx.fillText(`SCREENTIME JOURNAL · ${titleLabel.toUpperCase()}`, PAD, y); y += 18;
+
+    const totalTV = allItems.filter(o=>o.completedType!=='Movie').length;
+    const totalMovies = allItems.filter(o=>o.completedType==='Movie').length;
+    ctx.fillStyle = '#888'; ctx.font = '12px sans-serif';
+    let statsText = '';
+    if(listTypeFilter!=='movie') statsText += `${totalTV} TV seasons  `;
+    if(listTypeFilter!=='tv') statsText += `${totalMovies} movies  `;
+    statsText += `· ${allItems.length} total`;
+    ctx.fillText(statsText, PAD, y); y += 28;
+
+    ctx.strokeStyle = '#e8d8c8'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+    y += 18;
+
+    keys.forEach(mk=>{
+      const {label, items} = byMonth[mk];
+      ctx.fillStyle = '#d4603a'; ctx.font = 'bold 14px Georgia, serif';
+      ctx.fillText(label, PAD, y);
+      const lw = ctx.measureText(label).width;
+      ctx.fillStyle = '#aaa'; ctx.font = '10px sans-serif';
+      ctx.fillText(`${items.length} show${items.length!==1?'s':''}`, PAD + lw + 10, y);
+      y += 8;
+      ctx.strokeStyle = '#e8d8c8'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+      y += 14;
+
+      items.forEach((o, i) => {
+        const isMovie = o.completedType === 'Movie';
+        const stars = o.score ? '★'.repeat(Math.round(o.score/2))+'☆'.repeat(5-Math.round(o.score/2)) : '';
+        ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif';
+        ctx.fillText(`${i+1}.`, PAD, y);
+        ctx.fillStyle = '#2a1a10'; ctx.font = '13px sans-serif';
+        ctx.fillText(o.title + (!isMovie?` S${o.season}`:''), PAD + 26, y);
+        ctx.fillStyle = isMovie ? '#7d9e7a' : '#c05a35'; ctx.font = '11px sans-serif';
+        ctx.fillText(isMovie?'Movie':'TV Show', W-PAD-160, y);
+        if(stars){ ctx.fillStyle='#c05a35'; ctx.font='11px sans-serif'; ctx.fillText(stars, W-PAD-75, y); }
+        ctx.strokeStyle='#f0e8e0'; ctx.lineWidth=0.5;
+        ctx.beginPath(); ctx.moveTo(PAD,y+6); ctx.lineTo(W-PAD,y+6); ctx.stroke();
+        y += lineH;
+      });
+      y += monthGap;
+    });
+
+    ctx.fillStyle='#ddd'; ctx.font='italic 10px Georgia,serif'; ctx.textAlign='right';
+    ctx.fillText('screentime journal', W-PAD, y+8); ctx.textAlign='left';
+
+    // Show image inline for saving
+    const dataUrl = canvas.toDataURL('image/png');
+    const imgOverlay = document.createElement('div');
+    imgOverlay.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+    imgOverlay.innerHTML = `
+      <p style="color:#fff;font-family:sans-serif;font-size:13px;text-align:center;margin:0;">
+        📱 <strong>On iPhone:</strong> Press & hold the image → Save to Photos<br>
+        💻 <strong>On desktop:</strong> Right-click → Save image as…
+      </p>
+      <img src="${dataUrl}" style="max-width:90vw;max-height:75vh;border-radius:12px;box-shadow:0 8px 40px #0008;" />
+      <button onclick="this.parentElement.remove()" style="background:#d4603a;color:#fff;border:none;border-radius:8px;padding:9px 24px;font-size:14px;font-family:sans-serif;cursor:pointer;">✕ Close</button>`;
+    document.body.appendChild(imgOverlay);
+    showMsg('✅ Image ready — press & hold to save!');
+
+  } catch(err) {
+    showMsg('❌ Failed: ' + err.message);
+  }
+
+  btn.textContent = '📸 Save as Image';
+  btn.disabled = false;
+}
+
+function renderCompletedListOverlay() {
+  const existing = document.getElementById('completed-list-overlay');
+  if(existing) existing.remove();
+
+  let allItems = ongoing.filter(o=>o.completed&&o.completedDate);
+  if(allItems.length===0){ showMsg('No completed shows yet.'); return; }
+
+  // Build month keys for dropdown
+  const byMonthAll = {};
+  allItems.forEach(o=>{
+    const [y,m]=o.completedDate.split('-').map(Number);
+    const key=`${y}-${String(m).padStart(2,'0')}`;
+    if(!byMonthAll[key]) byMonthAll[key]=`${MONTH_NAMES[m-1]} ${y}`;
+  });
+  const allKeys = Object.keys(byMonthAll).sort((a,b)=>{
+    const [ay,am]=a.split('-').map(Number);
+    const [by2,bm]=b.split('-').map(Number);
+    if(ay!==by2) return by2-ay;
+    return am-bm;
+  });
+  const monthOptions = `<option value="all">All Months</option>` +
+    allKeys.map(k=>`<option value="${k}" ${listMonthFilter===k?'selected':''}>${byMonthAll[k]}</option>`).join('');
+
+  // Filter by month
+  let items = listMonthFilter==='all' ? allItems
+    : allItems.filter(o=>{
+        const [y,m]=o.completedDate.split('-').map(Number);
+        return `${y}-${String(m).padStart(2,'0')}` === listMonthFilter;
+      });
+
+  // Filter by type
+  if(listTypeFilter==='tv') items = items.filter(o=>o.completedType!=='Movie');
+  else if(listTypeFilter==='movie') items = items.filter(o=>o.completedType==='Movie');
+
+  // Apply sort
+  if(listSort==='title') items = [...items].sort((a,b)=>a.title.localeCompare(b.title));
+  else if(listSort==='platform') items = [...items].sort((a,b)=>a.platform.localeCompare(b.platform));
+  else if(listSort==='rating') items = [...items].sort((a,b)=>(b.score||0)-(a.score||0));
+  else if(listSort==='type') items = [...items].sort((a,b)=>(a.completedType||'').localeCompare(b.completedType||''));
+
+  // Group by month
+  const byMonth = {};
+  items.forEach(o=>{
+    const [y,m]=o.completedDate.split('-').map(Number);
+    const key=`${y}-${String(m).padStart(2,'0')}`;
+    if(!byMonth[key]) byMonth[key]={label:`${MONTH_NAMES[m-1]} ${y}`,items:[]};
+    byMonth[key].items.push(o);
+  });
+  const keys = Object.keys(byMonth).sort((a,b)=>{
+    const [ay,am]=a.split('-').map(Number);
+    const [by2,bm]=b.split('-').map(Number);
+    if(ay!==by2) return by2-ay;
+    return am-bm;
+  });
+
+  const renderRow = (o,i) => {
+    const isMovie = o.completedType==='Movie';
+    const stars = o.score ? '★'.repeat(Math.round(o.score/2))+'☆'.repeat(5-Math.round(o.score/2)) : '';
+    const score = o.score ? ` ${o.score}/10` : '';
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px;color:#bbb;width:28px;">${i+1}.</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:13px;color:#2a1a10;">
+        ${esc(o.title)}${!isMovie?` <span style="color:#bbb;font-size:11px;">S${esc(o.season)}</span>`:''}
+      </td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px;color:${isMovie?'#7d9e7a':'#c05a35'};">${isMovie?'Movie':'TV Show'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px;color:#888;">${esc(o.platform||'')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px;color:#c05a35;">${stars}<span style="font-size:11px;color:#aaa;">${score}</span></td>
+    </tr>`;
+  };
+
+  const monthBlocks = keys.map(mk=>{
+    const {label,items:mItems} = byMonth[mk];
+    return `<div style="margin-bottom:24px;">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #e8d8c8;">
+        <h2 style="font-family:Georgia,serif;font-size:17px;color:#d4603a;margin:0;">${label}</h2>
+        <span style="font-size:11px;color:#aaa;letter-spacing:.08em;">${mItems.length} show${mItems.length!==1?'s':''}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <tbody>${mItems.map(renderRow).join('')}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const totalTV = items.filter(o=>o.completedType!=='Movie').length;
+  const totalMovies = items.filter(o=>o.completedType==='Movie').length;
+  const titleLabel = listMonthFilter==='all' ? 'All Time' : byMonthAll[listMonthFilter]||'';
+
+  const ss = `font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid #e8d8c8;background:#fff;color:#2a1a10;cursor:pointer;outline:none;`;
+  const typeBtnStyle = (v) => `font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 12px;border-radius:20px;cursor:pointer;border:1px solid ${listTypeFilter===v?'var(--accent)':'#e8d8c8'};background:${listTypeFilter===v?'#d4603a':'#fff'};color:${listTypeFilter===v?'#fff':'#888'};`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'completed-list-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#fdf8f2;z-index:9999;overflow:auto;padding:30px 40px;';
+  overlay.innerHTML = `
+    <div style="max-width:700px;margin:0 auto;font-family:'DM Sans',sans-serif;">
+
+      <!-- Top bar (not exported) -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:#888;">Watch List Export</span>
+        <button onclick="document.getElementById('completed-list-overlay').remove()" style="background:#d4603a;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;">✕ Close</button>
+      </div>
+
+      <!-- Controls (not exported) -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid #e8d8c8;">
+        <span style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.08em;">Month:</span>
+        <select id="list-month-select" style="${ss}" onchange="listMonthFilter=this.value;renderCompletedListOverlay();">${monthOptions}</select>
+        <span style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.08em;margin-left:4px;">Sort:</span>
+        <select style="${ss}" onchange="listSort=this.value;renderCompletedListOverlay();">
+          <option value="default" ${listSort==='default'?'selected':''}>Date</option>
+          <option value="title" ${listSort==='title'?'selected':''}>Title</option>
+          <option value="platform" ${listSort==='platform'?'selected':''}>Platform</option>
+          <option value="type" ${listSort==='type'?'selected':''}>Type</option>
+          <option value="rating" ${listSort==='rating'?'selected':''}>Rating</option>
+        </select>
+        <span style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.08em;margin-left:4px;">Type:</span>
+        <button style="${typeBtnStyle('all')}" onclick="listTypeFilter='all';renderCompletedListOverlay();">All</button>
+        <button style="${typeBtnStyle('tv')}" onclick="listTypeFilter='tv';renderCompletedListOverlay();">TV Only</button>
+        <button style="${typeBtnStyle('movie')}" onclick="listTypeFilter='movie';renderCompletedListOverlay();">Movies Only</button>
+      </div>
+
+      <!-- Image card (this gets exported) -->
+      <div id="list-image-card" style="background:#fdf8f2;border-radius:16px;padding:28px 32px;border:1px solid #e8d8c8;">
+        <div style="margin-bottom:20px;">
+          <h1 style="font-family:Georgia,serif;font-size:24px;color:#2a1a10;margin:0 0 3px;">Watch List</h1>
+          <div style="font-size:10px;color:#aaa;letter-spacing:.15em;text-transform:uppercase;">Screentime Journal · ${titleLabel}</div>
+          <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;color:#888;">
+            ${listTypeFilter!=='movie'?`<span>📺 ${totalTV} TV season${totalTV!==1?'s':''}</span>`:''}
+            ${listTypeFilter!=='tv'?`<span>🎬 ${totalMovies} movie${totalMovies!==1?'s':''}</span>`:''}
+            <span>· ${items.length} total</span>
+          </div>
+        </div>
+        ${items.length===0
+          ? '<div style="text-align:center;padding:30px;color:#bbb;">No shows for this selection.</div>'
+          : monthBlocks}
+        <div style="margin-top:16px;font-size:10px;color:#ddd;text-align:right;font-family:Georgia,serif;">screentime journal</div>
+      </div>
+
+      <!-- Save image button -->
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:center;">
+        <button id="list-save-img-btn" onclick="saveListAsImage()" style="background:#d4603a;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;">📸 Save as Image</button>
+        <span style="font-size:11px;color:#bbb;font-style:italic;">or Ctrl+P / Cmd+P to save as PDF</span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+// ── SORT SETTERS ──────────────────────────────────────────────────────────────
+function clearAllData() {
+  if(!confirm('⚠️ This will permanently delete ALL your data — entries, shows, wishlist. Are you sure?')) return;
+  if(!confirm('Last chance — this cannot be undone. Delete everything?')) return;
+  entries = []; ongoing = []; wishlist = [];
+  localStorage.removeItem('sc:entries');
+  localStorage.removeItem('sc:ongoing');
+  localStorage.removeItem('sc:wishlist');
+  showMsg('🗑️ All data cleared.');
+  rerender();
+}
+function setSortWatching(v) { sortWatching=v; renderWatching(); }
+function setSortCompleted(v) { sortCompleted=v||'default'; renderCompleted(); }
+function setSortGivenUp(v) { sortGivenUp=v; renderGivenUp(); }
+function setSortWishlist(v) { sortWishlist=v; renderWishlist(); }
+
+
+// ── EXPORT CALENDAR PNG ────────────────────────────────────────────────────────
+function exportCalendarPNG() {
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const entriesByDay = {};
+  entries.forEach(e => {
+    const d = new Date(e.date);
+    if(d.getFullYear()===calYear && d.getMonth()===calMonth) {
+      const day = d.getDate();
+      if(!entriesByDay[day]) entriesByDay[day]=[];
+      entriesByDay[day].push(e);
+    }
+  });
+
+  const allCells = [
+    ...Array(firstDay).fill(null).map((_,i)=>({empty:true})),
+    ...Array(daysInMonth).fill(null).map((_,i)=>({empty:false,day:i+1}))
+  ];
+  while(allCells.length%7!==0) allCells.push({empty:true});
+  const weeks=[];
+  for(let i=0;i<allCells.length;i+=7) weeks.push(allCells.slice(i,i+7));
+
+  const cellHtml = (cell) => {
+    if(cell.empty) return `<td style="width:14.285%;border:1px solid #ddd;padding:8px;background:#fafafa;"></td>`;
+    const dayE = entriesByDay[cell.day]||[];
+    const items = dayE.map(e=>{
+      const color = e.type==='Movie'?'#7d9e7a':'#c05a35';
+      const label = e.title + (e.season?` S${e.season}`:'') + (e.episode?` E${e.episode}`:'') + (e.episodeTo?`–${e.episodeTo}`:'');
+      return `<div style="font-size:11px;color:${color};margin-top:3px;line-height:1.5;display:flex;gap:4px;"><span style="flex-shrink:0;">–</span><span style="word-break:break-word;">${label}</span></div>`;
+    }).join('');
+    return `<td style="width:14.285%;border:1px solid #ddd;padding:10px;vertical-align:top;background:#fff;">
+      <div style="font-size:13px;font-weight:700;color:#888;margin-bottom:4px;">${cell.day}</div>
+      ${items}
+    </td>`;
+  };
+
+  const tableRows = weeks.map(week=>`<tr style="height:auto;">${week.map(cellHtml).join('')}</tr>`).join('');
+
+  // Inject a full-page print overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'cal-print-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;padding:24px 32px;';
+  overlay.innerHTML = `
+    <div id="cal-print-content" style="max-width:1100px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div>
+          <h1 style="font-family:Georgia,serif;font-size:26px;color:#2a1a10;margin:0;">Monthly Calendar</h1>
+          <div style="font-size:11px;color:#aaa;letter-spacing:.15em;text-transform:uppercase;margin-top:2px;">${MONTH_NAMES[calMonth]} ${calYear} · Screentime Journal</div>
+        </div>
+        <button onclick="closePrintOverlay()" style="background:#d4603a;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-family:sans-serif;cursor:pointer;">✕ Close</button>
+      </div>
+      <div id="cal-print-controls" style="display:flex;gap:16px;margin-bottom:16px;font-size:11px;color:#888;align-items:center;">
+        <span><span style="width:8px;height:8px;border-radius:50%;background:#c05a35;display:inline-block;margin-right:4px;vertical-align:middle;"></span>TV Show</span>
+        <span><span style="width:8px;height:8px;border-radius:50%;background:#7d9e7a;display:inline-block;margin-right:4px;vertical-align:middle;"></span>Movie</span>
+        <span style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+          <button onclick="try{window.print();}catch(e){alert('To save: press Ctrl+P (Windows) or Cmd+P (Mac), then choose Save as PDF.');}" style="background:#d4603a;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-family:sans-serif;cursor:pointer;">🖨️ Print / Save as PDF</button>
+        </span>
+      </div>
+      <div id="cal-print-table">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <colgroup>${Array(7).fill('<col style="width:14.285%;">').join('')}</colgroup>
+        <thead><tr>${DAY_NAMES.map(d=>`<th style="font-size:11px;color:#888;letter-spacing:.1em;text-transform:uppercase;padding:6px 8px 8px;text-align:left;border-bottom:2px solid #eee;width:14.285%;">${d}</th>`).join('')}</tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function saveCalendarAsImage() {
+  window.print();
+}
+
+function closePrintOverlay() {
+  const el = document.getElementById('cal-print-overlay');
+  if(el) el.remove();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+rerender();
+
+
+// ── TAB 5: STATS DASHBOARD ───────────────────────────────────────────────────
+let statsFilterYear  = 'all';
+let statsFilterMonth = 'all';
+
+function renderStats() {
+  const el = document.getElementById('tab-5');
+  const MONTH_NAMES_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // ── Helper: get year from a completedDate string ──────────────────────────
+  const getYear  = d => { if(!d) return null; const p=new Date(d); return isNaN(p)?null:p.getFullYear(); };
+  const getMonth = d => { if(!d) return null; const p=new Date(d); return isNaN(p)?null:p.getMonth()+1; };
+
+  // ── All years that have completed entries ─────────────────────────────────
+  const allCompletedYears = [...new Set(
+    ongoing.filter(o=>o.completed&&!o.givenUp&&o.completedDate).map(o=>getYear(o.completedDate)).filter(Boolean)
+  )].sort((a,b)=>a-b);
+
+  // months in selected year
+  const monthsInStatsYear = statsFilterYear==='all' ? [] : [...new Set(
+    ongoing.filter(o=>o.completed&&!o.givenUp&&o.completedDate&&getYear(o.completedDate)===statsFilterYear)
+      .map(o=>getMonth(o.completedDate)).filter(Boolean)
+  )].sort((a,b)=>a-b);
+
+  // ── Filter completed & entries by year/month ──────────────────────────────
+  const filterCompleted = o => {
+    if(!o.completed||o.givenUp) return false;
+    if(statsFilterYear==='all') return true;
+    const y=getYear(o.completedDate), m=getMonth(o.completedDate);
+    if(y!==statsFilterYear) return false;
+    if(statsFilterMonth!=='all'&&m!==statsFilterMonth) return false;
+    return true;
+  };
+  const filterEntry = e => {
+    if(statsFilterYear==='all') return true;
+    if(!e.date) return false;
+    const d=new Date(e.date);
+    if(d.getFullYear()!==statsFilterYear) return false;
+    if(statsFilterMonth!=='all'&&d.getMonth()+1!==statsFilterMonth) return false;
+    return true;
+  };
+
+  // ── Data helpers ──────────────────────────────────────────────────────────
+  const completed   = ongoing.filter(filterCompleted);
+  const tvCompleted = completed.filter(o=>o.completedType!=='Movie');
+  const movies      = completed.filter(o=>o.completedType==='Movie');
+  const allEntries  = entries.filter(filterEntry);
+
+  // ── Pill style helper ─────────────────────────────────────────────────────
+  const pill = (label, active, onclick) =>
+    `<span onclick="${onclick}" style="cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1.5px solid ${active?'var(--accent)':'var(--border)'};background:${active?'var(--accent)':'var(--bgCard)'};color:${active?'#fff':'var(--textMid)'};white-space:nowrap;">${label}</span>`;
+
+  // ── Filter bar HTML ───────────────────────────────────────────────────────
+  const yearPills = [
+    pill('All', statsFilterYear==='all', "statsFilterYear='all';statsFilterMonth='all';renderStats();"),
+    ...allCompletedYears.map(y=>pill(y, statsFilterYear===y, `statsFilterYear=${y};statsFilterMonth='all';renderStats();`))
+  ].join('');
+
+  const monthPills = statsFilterYear!=='all' && monthsInStatsYear.length>1 ? [
+    pill('All', statsFilterMonth==='all', "statsFilterMonth='all';renderStats();"),
+    ...monthsInStatsYear.map(m=>pill(MONTH_NAMES_SHORT[m-1], statsFilterMonth===m, `statsFilterMonth=${m};renderStats();`))
+  ].join('') : '';
+
+  const filterBar = `
+    <div style="margin-bottom:6px;">
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Year</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${yearPills}</div>
+    </div>
+    ${monthPills ? `<div style="margin-bottom:6px;">
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Month</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${monthPills}</div>
+    </div>` : ''}`;
+
+  // Platform breakdown — count by log entries (respects year/month filter)
+  // This captures all shows including currently watching, not just completed
+  const platformCount = {};
+  allEntries.forEach(e=>{
+    const p = e.platform||'Unknown';
+    platformCount[p] = (platformCount[p]||0) + 1;
+  });
+  // Also count ongoing (watching) shows not captured by entries if no filter
+  // De-duplicate: count unique title+season combos per platform from ongoing
+  const ongoingPlatCount = {};
+  ongoing.filter(o=>!o.givenUp).forEach(o=>{
+    const p = o.platform||'Unknown';
+    if(!ongoingPlatCount[p]) ongoingPlatCount[p] = new Set();
+    ongoingPlatCount[p].add(o.title+'||'+(o.season||''));
+  });
+  const platformsSorted = Object.entries(platformCount).sort((a,b)=>b[1]-a[1]);
+  const maxPlat = platformsSorted[0]?.[1] || 1;
+
+  // Monthly watch activity (log entries count per month)
+  const monthlyCount = {};
+  allEntries.forEach(e=>{
+    if(!e.date) return;
+    const d = new Date(e.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    monthlyCount[key] = (monthlyCount[key]||0) + 1;
+  });
+  const monthKeys = Object.keys(monthlyCount).sort();
+  const maxMonth = Math.max(...Object.values(monthlyCount), 1);
+
+  // Top rated shows — respect year/month filter
+  const rated = ongoing.filter(o=>o.score!=null&&o.score>0&&filterCompleted(o)).sort((a,b)=>b.score-a.score).slice(0,10);
+
+  // Type breakdown
+  const tvCount    = tvCompleted.length;
+  const movieCount = movies.length;
+  const total      = tvCount + movieCount;
+
+  // Shows per year (or per month when year is filtered)
+  const yearCount = {};
+  const MNAMES_FULL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  completed.forEach(o=>{
+    if(!o.completedDate) return;
+    const d = new Date(o.completedDate);
+    if(isNaN(d)) return;
+    const key = statsFilterYear==='all' ? String(d.getFullYear()) : MNAMES_FULL[d.getMonth()];
+    if(statsFilterYear==='all' && d.getFullYear()<=2000) return;
+    yearCount[key] = (yearCount[key]||0)+1;
+  });
+  const yearsSorted = statsFilterYear==='all'
+    ? Object.entries(yearCount).sort((a,b)=>a[0]-b[0])
+    : Object.entries(yearCount).sort((a,b)=>MNAMES_FULL.indexOf(a[0])-MNAMES_FULL.indexOf(b[0]));
+
+  // Most watched titles (by log entry count)
+  const titleCount = {};
+  allEntries.forEach(e=>{ const t=e.title; titleCount[t]=(titleCount[t]||0)+1; });
+  const topTitles = Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  // ── Card helper ───────────────────────────────────────────────────────────
+  const card = (title, body) =>
+    `<div style="background:var(--bgCard);border:1px solid var(--border);border-radius:14px;padding:20px 24px;">
+      <div style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:14px;">${title}</div>
+      ${body}
+    </div>`;
+
+  const statNum = (n, label) =>
+    `<div style="text-align:center;">
+      <div style="font-family:'Lora',serif;font-size:36px;font-weight:700;color:var(--accent);">${n}</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textDim);margin-top:2px;">${label}</div>
+    </div>`;
+
+  const bar = (label, val, max, color='var(--accent)') =>
+    `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textMid);margin-bottom:3px;">
+        <span>${esc(label)}</span><span style="font-weight:600;color:var(--text);">${val}</span>
+      </div>
+      <div style="background:var(--border);border-radius:20px;height:8px;overflow:hidden;">
+        <div style="width:${Math.round(val/max*100)}%;background:${color};height:100%;border-radius:20px;transition:width .3s;"></div>
+      </div>
+    </div>`;
+
+  // ── Overview cards ─────────────────────────────────────────────────────────
+  const overviewHtml = card('📈 Overview',
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      ${statNum(total, 'Total Completed')}
+      ${statNum(tvCount, 'TV Seasons')}
+      ${statNum(movieCount, 'Movies')}
+      ${statNum(statsFilterYear==='all' ? ongoing.filter(o=>!o.completed&&!o.givenUp).length : [...new Set(allEntries.map(e=>e.title+'||'+(e.season||'')))].length, statsFilterYear==='all'?'Currently Watching':'Unique Shows Logged')}
+    </div>`);
+
+  // ── Platform breakdown ─────────────────────────────────────────────────────
+  const platformHtml = card('📺 Log Entries by Platform',
+    platformsSorted.length===0
+      ? '<div style="color:var(--textDim);font-size:13px;">No data yet.</div>'
+      : platformsSorted.map(([p,v])=>bar(p,v,maxPlat)).join(''));
+
+  // ── TV vs Movie donut (CSS only) ───────────────────────────────────────────
+  const tvPct = total>0 ? Math.round(tvCount/total*100) : 0;
+  const mvPct = 100 - tvPct;
+  const typeHtml = card('🎬 TV vs Movies',
+    `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      <div style="position:relative;width:110px;height:110px;flex-shrink:0;">
+        <svg viewBox="0 0 36 36" style="width:110px;height:110px;transform:rotate(-90deg);">
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--border)" stroke-width="3.5"/>
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--accent)" stroke-width="3.5"
+            stroke-dasharray="${tvPct} ${100-tvPct}" stroke-dashoffset="0" stroke-linecap="round"/>
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--matcha)" stroke-width="3.5"
+            stroke-dasharray="${mvPct} ${100-mvPct}" stroke-dashoffset="${-tvPct}" stroke-linecap="round"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:18px;font-weight:700;color:var(--text);">${total}</div>
+      </div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);"></div>
+          <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);">TV Shows</span>
+          <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--accent);margin-left:auto;">${tvCount} (${tvPct}%)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--matcha);"></div>
+          <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);">Movies</span>
+          <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--matcha);margin-left:auto;">${movieCount} (${mvPct}%)</span>
+        </div>
+      </div>
+    </div>`);
+
+  // ── Monthly activity ───────────────────────────────────────────────────────
+  const MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthBars = monthKeys.slice(-18).map(k=>{
+    const [y,m] = k.split('-');
+    const label = MNAMES[parseInt(m)-1]+' '+y.slice(2);
+    const v = monthlyCount[k];
+    const h = Math.round(v/maxMonth*60)+4;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:28px;">
+      <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:var(--textDim);">${v}</div>
+      <div style="width:100%;max-width:28px;height:${h}px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.85;"></div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:var(--textDim);writing-mode:vertical-rl;transform:rotate(180deg);height:28px;">${label}</div>
+    </div>`;
+  }).join('');
+
+  const activityHtml = card('📅 Monthly Log Activity',
+    monthKeys.length===0
+      ? '<div style="color:var(--textDim);font-size:13px;">No entries yet.</div>'
+      : `<div style="display:flex;align-items:flex-end;gap:4px;overflow-x:auto;padding-bottom:4px;">${monthBars}</div>`);
+
+  // ── Top rated ─────────────────────────────────────────────────────────────
+  const starsHtml = n => '★'.repeat(Math.round(n/2))+'☆'.repeat(5-Math.round(n/2));
+  const topRatedHtml = card('⭐ Top Rated',
+    rated.length===0
+      ? '<div style="color:var(--textDim);font-size:13px;">No ratings yet.</div>'
+      : rated.map((o,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;${i<rated.length-1?'border-bottom:1px solid var(--border);':''}">
+          <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);width:16px;text-align:right;">${i+1}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(o.title)}${o.season?' S'+esc(o.season):''}</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">${esc(o.platform||'')}</div>
+          </div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:var(--accent);font-weight:700;white-space:nowrap;">${o.score}/10</div>
+        </div>`).join(''));
+
+  // ── Most logged ────────────────────────────────────────────────────────────
+  const maxLog = topTitles[0]?.[1]||1;
+  const mostLoggedHtml = card('📝 Most Logged Shows',
+    topTitles.length===0
+      ? '<div style="color:var(--textDim);font-size:13px;">No entries yet.</div>'
+      : topTitles.map(([t,v])=>bar(t,v,maxLog,'var(--matcha)')).join(''));
+
+  // ── Completed by year ──────────────────────────────────────────────────────
+  const maxYear = Math.max(...yearsSorted.map(([,v])=>v),1);
+  const byYearHtml = card(statsFilterYear==='all'?'🗓️ Completed by Year':'🗓️ Completed by Month',
+    yearsSorted.length===0
+      ? '<div style="color:var(--textDim);font-size:13px;">No data yet.</div>'
+      : yearsSorted.map(([y,v])=>bar(y,v,maxYear)).join(''));
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Stats & Dashboard</h2>
+        <p style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--textDim);margin-top:2px;">
+          ${statsFilterYear==='all' ? 'All time' : statsFilterMonth!=='all' ? MONTH_NAMES_SHORT[statsFilterMonth-1]+' '+statsFilterYear : String(statsFilterYear)}
+        </p>
+      </div>
+    </div>
+    <div style="background:var(--bgCard);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:16px;">
+      ${filterBar}
+    </div>
+    <div style="display:grid;gap:16px;">
+      ${overviewHtml}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        ${typeHtml}
+        ${byYearHtml}
+      </div>
+      ${activityHtml}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        ${platformHtml}
+        ${mostLoggedHtml}
+      </div>
+      ${topRatedHtml}
+    </div>`;
+}
+
+
+// ── Google Sheets Auto-Sync ──────────────────────────────────────────────────
+const SHEETS_URL_KEY     = 'sc:sheetsUrl';
+const SHEETS_LAST_SYNC   = 'sc:lastSheetsSync';
+
+function getSheetsUrl() { return localStorage.getItem(SHEETS_URL_KEY)||''; }
+
+async function sheetsImport(silent=false) {
+  const url = getSheetsUrl();
+  if(!url) {
+    if(!silent) {
+      const input = prompt('Paste your Apps Script URL to enable phone sync:');
+      if(!input || !input.startsWith('https://script.google.com')) return;
+      localStorage.setItem(SHEETS_URL_KEY, input.trim());
+    } else return;
+  }
+  const btn = document.getElementById('sheets-sync-btn');
+  if(btn) btn.textContent = '☁️ Syncing…';
+  try {
+    const res  = await fetch(getSheetsUrl());
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const sheetEntries = data.entries || [];
+    if(!sheetEntries.length) {
+      if(!silent) showSyncToast('✓ No new entries from phone');
+      if(btn) btn.textContent = '☁️ Sync Phone';
+      return;
+    }
+    const existingIds = new Set(entries.map(e=>String(e.id)));
+    let added = 0;
+    sheetEntries.forEach(e => {
+      if(existingIds.has(String(e.id))) return;
+      entries.push({
+        id:        Number(e.id)||Date.now(),
+        title:     e.title    ||'',
+        type:      e.type     ||'TV Show',
+        season:    e.season   ||'',
+        episode:   e.episode  ||'',
+        episodeTo: e.episodeTo||'',
+        totalEp:   e.totalEp  ||'',
+        platform:  e.platform ||'',
+        date:      e.date     ||'',
+        notes:     e.notes    ||'',
+        rating:    e.rating   ||''
+      });
+      added++;
+    });
+    if(added > 0) {
+      localStorage.setItem('sc:entries', JSON.stringify(entries));
+      rerender();
+      localStorage.setItem(SHEETS_LAST_SYNC, new Date().toISOString());
+      showSyncToast(`☁️ Imported ${added} new entry/entries from phone!`);
+    } else {
+      if(!silent) showSyncToast('✓ Already up to date');
+    }
+  } catch(err) {
+    if(!silent) showSyncToast('⚠️ Sync failed: ' + err.message);
+  } finally {
+    if(btn) btn.textContent = '☁️ Sync Phone';
+    updateSyncBtnLabel();
+  }
+}
+
+function manualSheetsSync() { sheetsImport(false); }
+
+function updateSyncBtnLabel() {
+  const btn  = document.getElementById('sheets-sync-btn');
+  if(!btn) return;
+  const last = localStorage.getItem(SHEETS_LAST_SYNC);
+  if(last) {
+    const d = new Date(last);
+    const time = d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+    const today = new Date().toDateString() === d.toDateString();
+    btn.title = 'Last synced: ' + (today ? 'Today ' + time : d.toLocaleDateString('en-GB') + ' ' + time);
+  }
+}
+
+function showSyncToast(msg) {
+  let t = document.getElementById('sync-toast');
+  if(!t) {
+    t = document.createElement('div');
+    t.id = 'sync-toast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:#2c1a0e;color:#fdf8f2;border-radius:999px;padding:10px 20px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 4px 20px rgba(44,26,14,.2);transition:transform .3s,opacity .3s;opacity:0;z-index:9999;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  t.style.opacity   = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => {
+    t.style.transform = 'translateX(-50%) translateY(60px)';
+    t.style.opacity   = '0';
+  }, 3000);
+}
+
+// Auto-sync on page load if URL is set and last sync was > 5 mins ago
+window.addEventListener('load', () => {
+  updateSyncBtnLabel();
+  const url  = getSheetsUrl();
+  if(!url) return;
+  const last = localStorage.getItem(SHEETS_LAST_SYNC);
+  const diff = last ? (Date.now() - new Date(last).getTime()) : Infinity;
+  if(diff > 5 * 60 * 1000) sheetsImport(true); // silent auto-sync
+});
+
+</script>
+</body>
+</html>
