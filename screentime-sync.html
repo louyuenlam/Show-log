@@ -146,11 +146,11 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
         <input type="file" id="import-input" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(this)"/>
       </label>
       <button class="header-btn-save" onclick="exportExcel()">💾 Export Excel</button>
-      <button class="header-btn-file" onclick="openSyncSettings()" style="cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <button class="header-btn-file" onclick="openSyncSettings()" title="Sync Settings" style="cursor:pointer;display:flex;align-items:center;gap:5px;">
         <span id="sync-status-dot" style="width:8px;height:8px;border-radius:50%;background:#a08070;display:inline-block;"></span>
         <span id="sync-status-lbl">Local</span>
       </button>
-      <button class="header-btn-file" id="sheets-sync-btn" onclick="pullFromSheets(false)" style="cursor:pointer;">☁️ Sync</button>
+      <button class="header-btn-file" id="sheets-sync-btn" onclick="hasSheetsUrl()?pullFromSheets(false):openSyncSettings()" style="cursor:pointer;">☁️ Sync</button>
     </div>
   </div>
   <p id="stats-bar" style="display:none;"></p>
@@ -346,7 +346,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
 
 
 <!-- Sync Settings Modal -->
-<div id="sync-settings-modal" class="modal-backdrop hidden">
+<div id="sync-settings-modal" class="modal-overlay hidden">
   <div class="modal-box" style="max-width:420px;">
     <h3 class="modal-title">☁️ Sheets Sync</h3>
     <div class="form-group">
