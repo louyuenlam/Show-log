@@ -81,6 +81,71 @@ header {
 .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
 .sync-dot.pending { background: var(--accent); }
 
+/* Hamburger menu button */
+.menu-btn {
+  background: transparent; border: none; font-size: 22px; color: var(--ink);
+  width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; padding: 0; line-height: 1;
+}
+.menu-btn:active { background: var(--cream-dark); }
+
+/* Sidebar overlay */
+.sidebar-overlay {
+  position: fixed; inset: 0; background: rgba(44,26,14,.4);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+  z-index: 50;
+}
+.sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+
+/* Sidebar panel */
+.sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 51;
+  width: 280px; max-width: 80vw;
+  background: var(--cream); border-right: 1px solid var(--border);
+  transform: translateX(-100%); transition: transform .25s ease;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 4px 0 24px rgba(44,26,14,.12);
+  overflow-y: auto;
+}
+.sidebar.open { transform: translateX(0); }
+.sidebar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-brand {
+  font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700;
+  color: var(--ink); line-height: 1;
+}
+.sidebar-brand em { font-style: italic; font-weight: 500; color: var(--accent); }
+.sidebar-close {
+  background: transparent; border: none; font-size: 18px;
+  color: var(--ink-mid); cursor: pointer; padding: 4px 8px;
+}
+.sidebar-nav { padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+.sidebar-section-title {
+  font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim);
+  padding: 12px 12px 6px;
+}
+.sidebar-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px; border-radius: 10px;
+  font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 500;
+  color: var(--ink); text-decoration: none;
+  transition: background .15s;
+}
+.sidebar-link:hover, .sidebar-link:active { background: var(--cream-dark); }
+.sidebar-link.active {
+  background: var(--accent-tint); color: var(--accent-dark); font-weight: 700;
+}
+.sidebar-icon { font-size: 18px; width: 22px; text-align: center; }
+.sidebar-label { flex: 1; }
+
 .setup-banner {
   max-width: 480px; margin: 16px auto 0; padding: 0 16px;
 }
@@ -183,16 +248,62 @@ textarea.input-field { resize: none; line-height: 1.5; }
 <body>
 
 <header>
+  <button class="menu-btn" onclick="openSidebar()" aria-label="Menu">☰</button>
   <div class="brand">Screen<em>time</em></div>
   <div class="header-right">
-    <button class="refresh-btn" onclick="refreshWatching()">↻ Shows</button>
-    <button class="refresh-btn" onclick="openSettings()" style="background:var(--cream-dark);color:var(--ink-mid);border-color:var(--border);">⚙️</button>
+    <button class="refresh-btn" onclick="refreshWatching()">↻</button>
     <button class="sync-btn" id="sync-btn" onclick="syncPending()">
       <div class="sync-dot" id="sync-dot"></div>
       <span id="sync-label">Sync</span>
     </button>
   </div>
 </header>
+
+<!-- Sidebar -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-brand">Screen<em>time</em></div>
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-title">Quick</div>
+    <a class="sidebar-link active" href="#" onclick="closeSidebar();return false;">
+      <span class="sidebar-icon">⚡</span>
+      <span class="sidebar-label">Quick Log</span>
+    </a>
+    <div class="sidebar-section-title">Full Tracker</div>
+    <a class="sidebar-link" href="screentime-sync.html#watch-log">
+      <span class="sidebar-icon">📅</span>
+      <span class="sidebar-label">Watch Log</span>
+    </a>
+    <a class="sidebar-link" href="screentime-sync.html#watching">
+      <span class="sidebar-icon">📺</span>
+      <span class="sidebar-label">Watching</span>
+    </a>
+    <a class="sidebar-link" href="screentime-sync.html#completed">
+      <span class="sidebar-icon">✅</span>
+      <span class="sidebar-label">Completed</span>
+    </a>
+    <a class="sidebar-link" href="screentime-sync.html#given-up">
+      <span class="sidebar-icon">💔</span>
+      <span class="sidebar-label">Given Up</span>
+    </a>
+    <a class="sidebar-link" href="screentime-sync.html#wishlist">
+      <span class="sidebar-icon">⭐</span>
+      <span class="sidebar-label">Wishlist</span>
+    </a>
+    <a class="sidebar-link" href="screentime-sync.html#stats">
+      <span class="sidebar-icon">📊</span>
+      <span class="sidebar-label">Stats</span>
+    </a>
+    <div class="sidebar-section-title">Settings</div>
+    <a class="sidebar-link" href="#" onclick="closeSidebar();openSettings();return false;">
+      <span class="sidebar-icon">⚙️</span>
+      <span class="sidebar-label">Settings</span>
+    </a>
+  </nav>
+</aside>
 
 <div id="setup-banner-wrap"></div>
 
@@ -311,6 +422,10 @@ textarea.input-field { resize: none; line-height: 1.5; }
 </div>
 
 <script>
+// ── Sidebar ──────────────────────────────────────────────────────────────────
+function openSidebar()  { document.getElementById('sidebar').classList.add('open');    document.getElementById('sidebar-overlay').classList.add('open'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-overlay').classList.remove('open'); }
+
 const PLATFORMS   = ["Apple TV+","BBC","Cinema","Disney+","Gimy","HBO Max","Hulu","ITVX","Netflix","Paramount+","Peacock","Plane","Prime Video","Other"];
 const SCRIPT_KEY  = 'sc:sheetsUrl';
 const PENDING_KEY = 'sc:pendingSync';
