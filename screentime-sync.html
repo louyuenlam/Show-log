@@ -146,11 +146,11 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
         <input type="file" id="import-input" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(this)"/>
       </label>
       <button class="header-btn-save" onclick="exportExcel()">💾 Export Excel</button>
-      <button class="header-btn-file" onclick="openSyncSettings()" style="cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <button class="header-btn-file" onclick="openSyncSettings()" title="Sync Settings" style="cursor:pointer;display:flex;align-items:center;gap:5px;">
         <span id="sync-status-dot" style="width:8px;height:8px;border-radius:50%;background:#a08070;display:inline-block;"></span>
         <span id="sync-status-lbl">Local</span>
       </button>
-      <button class="header-btn-file" id="sheets-sync-btn" onclick="pullFromSheets(false)" style="cursor:pointer;">☁️ Sync</button>
+      <button class="header-btn-file" id="sheets-sync-btn" onclick="hasSheetsUrl()?pullFromSheets(false):openSyncSettings()" style="cursor:pointer;">☁️ Sync</button>
     </div>
   </div>
   <p id="stats-bar" style="display:none;"></p>
@@ -346,7 +346,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
 
 
 <!-- Sync Settings Modal -->
-<div id="sync-settings-modal" class="modal-backdrop hidden">
+<div id="sync-settings-modal" class="modal-overlay hidden">
   <div class="modal-box" style="max-width:420px;">
     <h3 class="modal-title">☁️ Sheets Sync</h3>
     <div class="form-group">
@@ -375,7 +375,7 @@ const CACHE_ONGOING    = 'sc:ongoing';
 const CACHE_WISHLIST   = 'sc:wishlist';
 const CACHE_MODIFIED   = 'sc:lastModified';
 
-let _sheetsUrl = localStorage.getItem(SHEETS_URL_KEY) || '';
+let _sheetsUrl = localStorage.getItem(SHEETS_URL_KEY) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
 let _syncing   = false;
 let _dirty     = false; // local changes pending push
 
@@ -2680,19 +2680,11 @@ window.addEventListener('load', () => {
 
 
 // ── Sheets Sync Init ──────────────────────────────────────────────────────────
-(async function initSync() {
+async function initSync() {
   if(hasSheetsUrl()) {
     setSyncStatus('syncing');
-    // Check if Sheets has newer data
     try {
-      const meta = await sheetsGet('type=lastModified');
-      const remoteTs = meta.lastModified || '';
-      const localTs  = localStorage.getItem(CACHE_MODIFIED) || '';
-      if(!localTs || remoteTs > localTs) {
-        await pullFromSheets(true);
-      } else {
-        setSyncStatus('synced');
-      }
+      await pullFromSheets(true);
     } catch {
       setSyncStatus('error');
       loadCache();
@@ -2700,14 +2692,13 @@ window.addEventListener('load', () => {
     }
   } else {
     setSyncStatus('local');
-    // Show setup prompt if no URL set
-    setTimeout(() => {
-      if(!hasSheetsUrl()) {
-        showSyncToast('☁️ Tap the sync button to connect Google Sheets');
-      }
-    }, 1500);
   }
-})();
+}
+
+// Run after everything is loaded
+window.addEventListener('load', () => {
+  setTimeout(initSync, 500);
+});
 
 </script>
 </body>
