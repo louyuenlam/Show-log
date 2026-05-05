@@ -1190,11 +1190,14 @@ function saveEntry() {
     ? (getFirstPlatform(title, season) || document.getElementById('ef-platform').value)
     : document.getElementById('ef-platform').value;
 
+  const isMovieType = type === 'Movie';
   const entry = {
     id: editId ? Number(editId) : Date.now(),
-    title, type, season,
-    episode: epFrom||'', episodeTo: isRange?epTo:'',
-    totalEp: document.getElementById('ef-totalep').value,
+    title, type,
+    season:    isMovieType ? '' : season,
+    episode:   isMovieType ? '' : (epFrom||''),
+    episodeTo: isMovieType ? '' : (isRange?epTo:''),
+    totalEp:   isMovieType ? '' : document.getElementById('ef-totalep').value,
     platform: lockedPlatform,
     date: toISO(document.getElementById('ef-date').value),
     notes: document.getElementById('ef-notes').value
