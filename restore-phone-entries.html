@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Restore Phone Entries</title>
+<style>
+body{font-family:'Segoe UI',sans-serif;background:#fdf8f2;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;box-sizing:border-box;}
+.box{background:#fff;border-radius:16px;padding:40px;max-width:520px;width:100%;box-shadow:0 4px 24px rgba(44,26,14,.1);}
+h2{color:#d4603a;margin-bottom:8px;}
+p{color:#6b4c3b;font-size:14px;margin-bottom:16px;line-height:1.6;}
+.info{background:#edf6ec;border-radius:8px;padding:12px 14px;color:#3a7a37;font-size:13px;margin-bottom:16px;}
+.btn{width:100%;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer;}
+.btn-primary{background:#b84e2a;color:#fff;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.log{font-size:12px;color:#6b4c3b;line-height:1.8;max-height:220px;overflow-y:auto;margin-top:16px;background:#f9f5f0;border-radius:8px;padding:10px 12px;display:none;}
+.success{color:#5a9e57;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>📱 Restore Phone Entries</h2>
+  <p>Restores the 32 phone-logged entries from April–May 2026 that were lost when the Entries sheet was replaced.</p>
+  <div class="info">✓ 32 entries from 2026-04-02 to 2026-05-04 ready to restore</div>
+  <button class="btn btn-primary" id="go" onclick="restore()">▶ Restore Phone Entries</button>
+  <div class="log" id="log"></div>
+</div>
+<script>
+const URL = 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
+const ENTRIES = [{"id": 1777320755428, "title": "Rooster", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "8", "episodeTo": "", "totalEp": "10", "date": "2026-04-27", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777320944029, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "3", "episode": "6", "episodeTo": "", "totalEp": "8", "date": "2026-04-27", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777404852155, "title": "DMV", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "17", "episodeTo": "", "totalEp": "20", "date": "2026-04-28", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777404852156, "title": "DMV", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "18", "episodeTo": "", "totalEp": "20", "date": "2026-04-28", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777404887312, "title": "The Simpsons", "type": "TV Show", "platform": "Disney+", "season": "37", "episode": "1", "episodeTo": "", "totalEp": "15", "date": "2026-04-28", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777409349959, "title": "American Classic", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "3", "episodeTo": "", "totalEp": "8", "date": "2026-04-28", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777489202231, "title": "Margo's Got Money Troubles", "type": "TV Show", "platform": "Apple TV+", "season": "1", "episode": "5", "episodeTo": "", "totalEp": "8", "date": "2026-04-29", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777489314102, "title": "The Simpsons", "type": "TV Show", "platform": "Disney+", "season": "37", "episode": "2", "episodeTo": "", "totalEp": "15", "date": "2026-04-27", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777501725211, "title": "The Boys", "type": "TV Show", "platform": "Prime Video", "season": "5", "episode": "5", "episodeTo": "", "totalEp": "8", "date": "2026-04-29", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777588954998, "title": "Abbott Elementary", "type": "TV Show", "platform": "Gimy", "season": "5", "episode": "20", "episodeTo": "", "totalEp": "22", "date": "2026-04-30", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777589803769, "title": "The Simpsons", "type": "TV Show", "platform": "Disney+", "season": "37", "episode": "4", "episodeTo": "", "totalEp": "15", "date": "2026-04-30", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777652912890, "title": "Georgie & Mandy's First Marriage", "type": "TV Show", "platform": "Apple TV+", "season": "2", "episode": "18", "episodeTo": "", "totalEp": "22", "date": "2026-05-01", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777653002951, "title": "The Simpsons", "type": "TV Show", "platform": "Disney+", "season": "37", "episode": "3", "episodeTo": "", "totalEp": "15", "date": "2026-04-28", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777756977301, "title": "Hacks", "type": "TV Show", "platform": "Gimy", "season": "5", "episode": "4", "episodeTo": "", "totalEp": "10", "date": "2026-05-01", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777756977302, "title": "Hacks", "type": "TV Show", "platform": "Gimy", "season": "5", "episode": "5", "episodeTo": "", "totalEp": "10", "date": "2026-05-01", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777756995760, "title": "Matlock", "type": "TV Show", "platform": "Gimy", "season": "2", "episode": "16", "episodeTo": "", "totalEp": "16", "date": "2026-05-01", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777823333065, "title": "Abbott Elementary", "type": "TV Show", "platform": "Gimy", "season": "5", "episode": "21", "episodeTo": "", "totalEp": "22", "date": "2026-05-01", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777842735220, "title": "Abbott Elementary", "type": "TV Show", "platform": "Gimy", "season": "5", "episode": "22", "episodeTo": "", "totalEp": "22", "date": "2026-05-03", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932456, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "1", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932457, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "2", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932458, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "3", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932459, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "4", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932460, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "5", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932461, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "6", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932462, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "7", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845932463, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "8", "episodeTo": "", "totalEp": "13", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777845977100, "title": "St. Denis Medical", "type": "TV Show", "platform": "Gimy", "season": "2", "episode": "17", "episodeTo": "", "totalEp": "18", "date": "2026-04-02", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777846005767, "title": "St. Denis Medical", "type": "TV Show", "platform": "Gimy", "season": "2", "episode": "18", "episodeTo": "", "totalEp": "18", "date": "2026-04-08", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777901726553, "title": "Rooster", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "7", "episodeTo": "", "totalEp": "10", "date": "2026-05-04", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777910237506, "title": "The Comeback", "type": "TV Show", "platform": "Gimy", "season": "3", "episode": "7", "episodeTo": "", "totalEp": "8", "date": "2026-05-04", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777923464983, "title": "American Classic", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "4", "episodeTo": "", "totalEp": "8", "date": "2026-04-28", "notes": "", "rating": "", "updatedAt": ""}, {"id": 1777923484159, "title": "American Classic", "type": "TV Show", "platform": "Gimy", "season": "1", "episode": "5", "episodeTo": "", "totalEp": "8", "date": "2026-05-04", "notes": "", "rating": "", "updatedAt": ""}];
+
+function log(msg){const el=document.getElementById('log');el.style.display='block';el.innerHTML+='<div>'+msg+'</div>';el.scrollTop=el.scrollHeight;}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+async function restore(){
+  document.getElementById('go').disabled=true;
+  log('Restoring '+ENTRIES.length+' phone entries…');
+  try{
+    const res=await fetch(URL,{method:'POST',mode:'cors',body:JSON.stringify({op:'batchUpsert',sheet:'ENTRIES',data:ENTRIES}),headers:{'Content-Type':'text/plain'}});
+    const d=await res.json();
+    if(d.error) throw new Error(d.error);
+    log('<span class="success">✅ Done! '+ENTRIES.length+' phone entries restored. Refresh screentime-sync.html to see them.</span>');
+  }catch(e){log('⚠ Error: '+e.message);}
+  finally{document.getElementById('go').disabled=false;}
+}
+</script>
+</body>
+</html>
