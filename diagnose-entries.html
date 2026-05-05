@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Diagnose Entry Display</title>
+<style>
+body{font-family:'Segoe UI',sans-serif;background:#fdf8f2;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;box-sizing:border-box;}
+.box{background:#fff;border-radius:16px;padding:40px;max-width:700px;width:100%;box-shadow:0 4px 24px rgba(44,26,14,.1);}
+h2{color:#d4603a;margin-bottom:8px;}
+p{color:#6b4c3b;font-size:14px;margin-bottom:16px;}
+.btn{padding:12px 24px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;margin-right:8px;}
+.btn-primary{background:#b84e2a;color:#fff;}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px;}
+th{background:#f0e8dc;padding:6px 8px;text-align:left;font-weight:700;color:#6b4c3b;}
+td{padding:5px 8px;border-bottom:1px solid #f0e8dc;color:#2c1a0e;}
+tr:hover td{background:#fdf8f2;}
+.bad{color:#c0392b;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🔍 Diagnose Entry Display</h2>
+  <p>Fetches entries from Google Sheets and shows how they're stored — helps identify column mapping issues.</p>
+  <button class="btn btn-primary" onclick="diagnose()">Fetch & Show Entries for Apr 2, 2026</button>
+  <div id="result"></div>
+</div>
+<script>
+const URL = 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
+
+async function diagnose(){
+  document.getElementById('result').innerHTML='⏳ Loading…';
+  try{
+    const res=await fetch(URL+'?type=entries');
+    const data=await res.json();
+    const entries=(data.entries||[]).filter(e=>e.date&&e.date.toString().includes('2026-04-02'));
+    
+    let html='<p style="margin-top:12px;color:#6b4c3b;font-size:13px;">Found '+entries.length+' entries for Apr 2, 2026:</p>';
+    html+='<table><tr><th>Title</th><th>Type</th><th>Platform</th><th>Season</th><th>Episode</th><th>EpisodeTo</th><th>TotalEp</th></tr>';
+    entries.forEach(e=>{
+      const bad = !isNaN(e.platform) && e.platform!=='';
+      html+=`<tr>
+        <td>${e.title}</td>
+        <td>${e.type}</td>
+        <td class="${bad?'bad':''}">${e.platform||'(blank)'}</td>
+        <td>${e.season||'(blank)'}</td>
+        <td>${e.episode||'(blank)'}</td>
+        <td>${e.episodeTo||'(blank)'}</td>
+        <td>${e.totalEp||'(blank)'}</td>
+      </tr>`;
+    });
+    html+='</table>';
+    html+='<p style="margin-top:12px;font-size:12px;color:#a08070;">Red platform = likely a number stored in wrong column</p>';
+    document.getElementById('result').innerHTML=html;
+  }catch(e){
+    document.getElementById('result').innerHTML='Error: '+e.message;
+  }
+}
+</script>
+</body>
+</html>
