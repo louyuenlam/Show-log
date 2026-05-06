@@ -1,812 +1,538 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-<meta name="apple-mobile-web-app-title" content="Screentime Log"/>
-<meta name="theme-color" content="#fdf8f2"/>
-<link rel="apple-touch-icon" href="./icon.png"/>
-<link rel="icon" type="image/png" href="./icon.png"/>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<title>Screentime Log</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Show Log">
+<meta name="theme-color" content="#FDF9F0">
+<link rel="apple-touch-icon" href="./icon.png">
+<link rel="icon" type="image/png" href="./icon.png">
+<title>Show Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --accent:      #d4603a;
-  --accent-dark: #b84e2a;
-  --accent-tint: #f9ede7;
-  --ink:         #2c1a0e;
-  --ink-mid:     #6b4c3b;
-  --ink-dim:     #a08070;
-  --cream:       #fdf8f2;
-  --cream-dark:  #f0e8dc;
-  --border:      #e8ddd0;
-  --shadow:      0 2px 12px rgba(44,26,14,.08);
-  --green:       #5a9e57;
-  --green-tint:  #edf6ec;
-  --warn:        #c0392b;
-  --radius:      14px;
+:root{
+  --cream:#FDF9F0; --cream-dark:#F5EFE0; --accent:#d4603a; --accent-dark:#b54e2e;
+  --accent-light:#e8a489; --accent-pale:#fbe9df; --ink:#2c1a0e; --ink-soft:#5a4030;
+  --ink-dim:#8a7060; --border:#e8d9c0; --warn:#c0792e;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { height: 100%; }
-body {
-  background: var(--cream);
-  font-family: 'Manrope', sans-serif;
-  color: var(--ink);
-  min-height: 100dvh;
-  padding-bottom: calc(40px + env(safe-area-inset-bottom));
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
-  user-select: none;
-  background-image:
-    radial-gradient(ellipse 60% 40% at 10% 0%, rgba(212,96,58,.09) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(90,94,120,.06) 0%, transparent 70%);
-}
-input, textarea, select { -webkit-user-select: auto; user-select: auto; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--cream);color:var(--ink);font-family:'Manrope',sans-serif;font-size:14px;-webkit-user-select:none;user-select:none;overscroll-behavior:none;}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);min-height:100vh;background:radial-gradient(circle at 10% 10%,#fbe9df1a,transparent 40%),radial-gradient(circle at 90% 90%,#fbe9df1a,transparent 40%),var(--cream);}
+input,textarea,select{font-family:inherit;-webkit-user-select:auto;user-select:auto;}
+.wrap{max-width:480px;margin:0 auto;padding:14px 16px 80px;}
+.brand{font-family:'Fraunces',serif;font-weight:600;font-size:26px;color:var(--ink);letter-spacing:-.01em;}
+.brand em{font-style:italic;font-weight:500;color:var(--accent);}
+.sub{font-family:'Fraunces',serif;font-style:italic;font-size:12px;color:var(--ink-dim);margin-top:2px;}
+.head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+.sync-pill{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+.dot{width:8px;height:8px;border-radius:50%;background:#7aa860;}
+.dot.pending{background:var(--warn);}
 
-header {
-  background: rgba(253,248,242,.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 20px 12px;
-  padding-top: calc(14px + env(safe-area-inset-top));
-  position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
-}
-.brand { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1; flex-shrink: 0; }
-.brand em { font-style: italic; font-weight: 500; color: var(--accent); }
-.header-right { display: flex; gap: 8px; align-items: center; }
-.sync-btn {
-  font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600;
-  background: var(--green-tint); color: var(--green);
-  border: 1px solid var(--green); border-radius: 20px;
-  padding: 6px 12px; cursor: pointer;
-  display: flex; align-items: center; gap: 5px;
-  transition: opacity .15s; white-space: nowrap;
-}
-.sync-btn:active { opacity: .7; }
-.sync-btn.syncing { opacity: .6; pointer-events: none; }
-.refresh-btn {
-  font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600;
-  background: var(--accent-tint); color: var(--accent-dark);
-  border: 1px solid var(--accent); border-radius: 20px;
-  padding: 6px 12px; cursor: pointer;
-  transition: opacity .15s; white-space: nowrap;
-}
-.refresh-btn:active { opacity: .7; }
-.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-.sync-dot.pending { background: var(--accent); }
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
+.card-title{font-family:'Fraunces',serif;font-size:14px;font-weight:600;margin-bottom:10px;color:var(--ink);}
+.card-title em{font-style:italic;font-weight:500;color:var(--accent);}
 
-/* Hamburger menu button */
-.menu-btn {
-  background: transparent; border: none; font-size: 22px; color: var(--ink);
-  width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; padding: 0; line-height: 1;
-}
-.menu-btn:active { background: var(--cream-dark); }
+.label{display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:5px;}
+.input{width:100%;padding:10px 12px;border:1px solid var(--border);background:var(--cream);border-radius:10px;font-size:14px;color:var(--ink);min-height:44px;-webkit-appearance:none;-moz-appearance:none;appearance:none;}
+.input.error{border-color:var(--accent);}
+select.input{background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='%238a7060' d='M8 11L3 6h10z'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right 10px center;background-size:14px;padding-right:32px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.req{color:var(--accent);}
 
-/* Sidebar overlay */
-.sidebar-overlay {
-  position: fixed; inset: 0; background: rgba(44,26,14,.4);
-  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
-  opacity: 0; pointer-events: none; transition: opacity .2s;
-  z-index: 50;
-}
-.sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+.btn{width:100%;padding:14px;border:none;border-radius:12px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;min-height:48px;}
+.btn-primary{background:var(--accent-dark);color:#fff;}
+.btn-primary:active{opacity:.85;}
+.btn-secondary{background:#fff;color:var(--accent-dark);border:1px solid var(--accent);}
 
-/* Sidebar panel */
-.sidebar {
-  position: fixed; top: 0; left: 0; bottom: 0; z-index: 51;
-  width: 280px; max-width: 80vw;
-  background: var(--cream); border-right: 1px solid var(--border);
-  transform: translateX(-100%); transition: transform .25s ease;
-  display: flex; flex-direction: column;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 4px 0 24px rgba(44,26,14,.12);
-  overflow-y: auto;
-}
-.sidebar.open { transform: translateX(0); }
-.sidebar-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.sidebar-brand {
-  font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700;
-  color: var(--ink); line-height: 1;
-}
-.sidebar-brand em { font-style: italic; font-weight: 500; color: var(--accent); }
-.sidebar-close {
-  background: transparent; border: none; font-size: 18px;
-  color: var(--ink-mid); cursor: pointer; padding: 4px 8px;
-}
-.sidebar-nav { padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; }
-.sidebar-section-title {
-  font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 700;
-  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim);
-  padding: 12px 12px 6px;
-}
-.sidebar-link {
-  display: flex; align-items: center; gap: 12px;
-  padding: 11px 12px; border-radius: 10px;
-  font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 500;
-  color: var(--ink); text-decoration: none;
-  transition: background .15s;
-}
-.sidebar-link:hover, .sidebar-link:active { background: var(--cream-dark); }
-.sidebar-link.active {
-  background: var(--accent-tint); color: var(--accent-dark); font-weight: 700;
-}
-.sidebar-icon { font-size: 18px; width: 22px; text-align: center; }
-.sidebar-label { flex: 1; }
+.star-row{display:flex;gap:4px;align-items:center;}
+.star{font-size:24px;color:var(--border);cursor:pointer;line-height:1;}
+.star.on{color:var(--accent);}
+.star-clear{font-size:11px;color:var(--ink-dim);cursor:pointer;text-decoration:underline;margin-left:6px;}
 
-.setup-banner {
-  max-width: 480px; margin: 16px auto 0; padding: 0 16px;
-}
-.setup-inner {
-  background: linear-gradient(135deg, var(--accent-tint), #fff);
-  border: 1px solid var(--accent); border-radius: var(--radius);
-  padding: 14px 16px; font-size: 13px; color: var(--accent-dark); line-height: 1.5;
-}
-.setup-inner strong { font-weight: 700; }
-.setup-url-row { display: flex; gap: 8px; margin-top: 10px; }
-.setup-url-row input {
-  flex: 1; background: #fff; border: 1.5px solid var(--border); border-radius: 8px;
-  padding: 9px 12px; font-size: 13px; font-family: 'Manrope', sans-serif;
-  color: var(--ink); outline: none; min-height: 40px;
-}
-.setup-url-row input:focus { border-color: var(--accent); }
-.setup-url-row button {
-  background: var(--accent-dark); color: #fff; border: none; border-radius: 8px;
-  padding: 9px 14px; font-size: 13px; font-weight: 700;
-  font-family: 'Manrope', sans-serif; cursor: pointer; white-space: nowrap;
-}
+.err-msg{display:none;color:var(--accent);font-size:11px;margin-top:4px;}
+.err-msg.show{display:block;}
 
-.form-wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
-.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
-.card-title { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; color: var(--ink-mid); margin-bottom: 12px; }
-.card-title em { font-style: italic; font-weight: 500; color: var(--accent); }
-.field { display: flex; flex-direction: column; gap: 5px; }
-.field + .field { margin-top: 10px; }
-.label { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-dim); }
-.label .req { color: var(--accent); margin-left: 2px; }
-.input-field {
-  width: 100%; background: var(--cream); border: 1.5px solid var(--border);
-  border-radius: 10px; padding: 12px 14px; font-size: 16px;
-  font-family: 'Manrope', sans-serif; color: var(--ink);
-  appearance: none; -webkit-appearance: none; outline: none;
-  transition: border-color .15s, box-shadow .15s; min-height: 44px;
-}
-.input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(212,96,58,.1); }
-.input-field.error { border-color: var(--warn); }
-textarea.input-field { resize: none; line-height: 1.5; }
-.err-msg { font-size: 11px; color: var(--warn); display: none; margin-top: 2px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.hint-pill {
-  background: var(--accent-tint); border-radius: 8px; padding: 9px 12px;
-  font-size: 12px; font-weight: 500; color: var(--accent-dark);
-  cursor: pointer; display: none; margin-top: 8px; line-height: 1.4;
-}
+.recent-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;}
+.recent-title{font-weight:600;font-size:14px;color:var(--ink);}
+.recent-sub{font-size:12px;color:var(--ink-dim);margin-top:2px;}
+.recent-stars{font-size:11px;color:var(--accent);letter-spacing:1px;margin-top:2px;}
+.recent-meta{font-size:11px;color:var(--ink-dim);text-align:right;}
 
-.btn-row { max-width: 480px; margin: 0 auto; padding: 4px 16px 0; display: flex; gap: 10px; }
-.btn {
-  flex: 1; padding: 15px 12px; border-radius: 12px; border: none;
-  font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700;
-  cursor: pointer; transition: opacity .15s, transform .1s; min-height: 50px;
-}
-.btn:active { transform: scale(.97); opacity: .85; }
-.btn-primary { background: var(--accent-dark); color: #fff; }
-.btn-secondary { background: #fff; color: var(--accent-dark); border: 1.5px solid var(--accent); }
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--cream);padding:10px 18px;border-radius:999px;font-size:13px;z-index:300;transition:transform .3s;box-shadow:0 4px 16px rgba(0,0,0,.15);max-width:90vw;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.err{background:var(--warn);}
 
-.toast {
-  position: fixed; bottom: calc(28px + env(safe-area-inset-bottom));
-  left: 50%; transform: translateX(-50%) translateY(100px);
-  background: var(--ink); color: var(--cream); border-radius: 999px;
-  padding: 11px 22px; font-family: 'Manrope', sans-serif;
-  font-size: 13px; font-weight: 600; white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(44,26,14,.2);
-  transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
-  opacity: 0; pointer-events: none; z-index: 100;
-}
-.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.banner{background:var(--accent-pale);border:1px solid var(--accent-light);border-radius:12px;padding:14px;margin-bottom:12px;}
+.banner-title{font-weight:700;color:var(--accent-dark);font-size:13px;margin-bottom:6px;}
 
-.recent-section { max-width: 480px; margin: 0 auto; padding: 4px 16px 0; }
-.section-label { font-family: 'Fraunces', serif; font-style: italic; font-size: 13px; color: var(--ink-dim); margin-bottom: 10px; padding-left: 2px; }
-.recent-item {
-  background: #fff; border: 1px solid var(--border); border-radius: 12px;
-  padding: 11px 14px; margin-bottom: 8px;
-  display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow);
-}
-.ri-left .ri-title { font-size: 14px; font-weight: 600; color: var(--ink); }
-.ri-left .ri-sub { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
-.ri-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
-.ri-date { font-family: 'Fraunces', serif; font-style: italic; font-size: 12px; color: var(--ink-dim); }
-.ri-sync { font-size: 10px; margin-top: 2px; }
-.ri-sync.synced { color: var(--green); }
-.ri-sync.pending { color: var(--accent); }
-.divider { height: 1px; background: var(--border); margin: 16px auto 0; max-width: 480px; }
-.empty-msg { font-size: 13px; color: var(--ink-dim); padding: 4px 2px; }
-
-.star {
-  font-size: 28px;
-  color: var(--border);
-  cursor: pointer;
-  transition: color .15s, transform .1s;
-  line-height: 1;
-  -webkit-tap-highlight-color: transparent;
-}
-.star.active { color: var(--accent); }
-.star:active { transform: scale(.85); }
+.fab-debug{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));right:20px;width:44px;height:44px;border-radius:50%;background:var(--ink-soft);color:#fff;border:none;font-size:18px;box-shadow:0 4px 12px rgba(0,0,0,.2);cursor:pointer;z-index:150;}
 </style>
 </head>
 <body>
 
-<header>
-  <button class="menu-btn" onclick="openSidebar()" aria-label="Menu">☰</button>
-  <div class="brand">Screen<em>time</em></div>
-  <div class="header-right">
-    <button class="refresh-btn" onclick="refreshWatching()">↻</button>
-    <button class="sync-btn" id="sync-btn" onclick="syncPending()">
-      <div class="sync-dot" id="sync-dot"></div>
-      <span id="sync-label">Sync</span>
-    </button>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <div class="brand">Show<em>Log</em></div>
+      <div class="sub">Quick log on the go</div>
+    </div>
+    <div class="sync-pill"><span class="dot" id="dot"></span><span id="sync-label">Synced</span></div>
   </div>
-</header>
 
-<!-- Sidebar -->
-<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <div class="sidebar-brand">Screen<em>time</em></div>
-    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
-  </div>
-  <nav class="sidebar-nav">
-    <div class="sidebar-section-title">Quick</div>
-    <a class="sidebar-link active" href="#" onclick="closeSidebar();return false;">
-      <span class="sidebar-icon">⚡</span>
-      <span class="sidebar-label">Quick Log</span>
-    </a>
-    <div class="sidebar-section-title">Full Tracker</div>
-    <a class="sidebar-link" href="screentime-sync.html#watch-log">
-      <span class="sidebar-icon">📅</span>
-      <span class="sidebar-label">Watch Log</span>
-    </a>
-    <a class="sidebar-link" href="screentime-sync.html#watching">
-      <span class="sidebar-icon">📺</span>
-      <span class="sidebar-label">Watching</span>
-    </a>
-    <a class="sidebar-link" href="screentime-sync.html#completed">
-      <span class="sidebar-icon">✅</span>
-      <span class="sidebar-label">Completed</span>
-    </a>
-    <a class="sidebar-link" href="screentime-sync.html#given-up">
-      <span class="sidebar-icon">💔</span>
-      <span class="sidebar-label">Given Up</span>
-    </a>
-    <a class="sidebar-link" href="screentime-sync.html#wishlist">
-      <span class="sidebar-icon">⭐</span>
-      <span class="sidebar-label">Wishlist</span>
-    </a>
-    <a class="sidebar-link" href="screentime-sync.html#stats">
-      <span class="sidebar-icon">📊</span>
-      <span class="sidebar-label">Stats</span>
-    </a>
-    <div class="sidebar-section-title">Settings</div>
-    <a class="sidebar-link" href="#" onclick="closeSidebar();openSettings();return false;">
-      <span class="sidebar-icon">⚙️</span>
-      <span class="sidebar-label">Settings</span>
-    </a>
-  </nav>
-</aside>
+  <div id="setup-banner"></div>
 
-<div id="setup-banner-wrap"></div>
-
-<div class="form-wrap">
   <div class="card">
     <div class="card-title">🎬 Quick pick <em>from watching</em></div>
-    <div class="field">
-      <select class="input-field" id="ef-pick" onchange="onPick()">
-        <option value="">— Choose a show —</option>
-      </select>
-    </div>
-    <div id="watching-status" style="font-size:11px;color:var(--ink-dim);margin-top:6px;"></div>
+    <select class="input" id="ef-pick" onchange="onPick()">
+      <option value="">— Type manually below —</option>
+    </select>
   </div>
 
   <div class="card">
     <div class="card-title">📝 Entry <em>details</em></div>
-    <div class="field">
-      <label class="label">Title</label>
-      <input class="input-field" id="ef-title" placeholder="e.g. Severance" oninput="onTitleChange()"/>
-    </div>
-    <div class="grid-2" style="margin-top:10px;">
-      <div class="field">
+    <label class="label">Title</label>
+    <input class="input" id="ef-title" placeholder="e.g. Severance"/>
+    <div class="row2" style="margin-top:10px;">
+      <div>
         <label class="label">Type</label>
-        <select class="input-field" id="ef-type" onchange="onTypeChange()">
-          <option>TV Show</option>
-          <option>Movie</option>
+        <select class="input" id="ef-type" onchange="onTypeChange()">
+          <option value="TV Show">TV Show</option>
+          <option value="Movie">Movie</option>
         </select>
       </div>
-      <div class="field">
+      <div>
         <label class="label">Platform</label>
-        <select class="input-field" id="ef-platform"></select>
+        <select class="input" id="ef-platform"></select>
       </div>
     </div>
   </div>
 
   <div class="card" id="tv-card">
-    <div class="card-title">📺 Season &amp; episodes</div>
-    <div class="grid-2">
-      <div class="field">
+    <div class="card-title">📺 Season &amp; <em>episodes</em></div>
+    <div class="row2">
+      <div>
         <label class="label">Season<span class="req">*</span></label>
-        <input class="input-field" id="ef-season" type="number" min="1" placeholder="1" oninput="onSeasonChange()"/>
-        <span class="err-msg" id="ef-season-err">⚠ Season required</span>
+        <input class="input" id="ef-season" type="number" min="1" placeholder="1"/>
+        <div class="err-msg" id="ef-season-err">⚠ Season required</div>
       </div>
-      <div class="field">
+      <div>
         <label class="label">Total Eps</label>
-        <input class="input-field" id="ef-totalep" type="number" min="1" placeholder="e.g. 10"/>
+        <input class="input" id="ef-totalep" type="number" min="1" placeholder="optional"/>
       </div>
     </div>
-    <div class="grid-2" style="margin-top:10px;">
-      <div class="field">
+    <div class="row2" style="margin-top:10px;">
+      <div>
         <label class="label">Ep From</label>
-        <input class="input-field" id="ef-epfrom" type="number" min="1" placeholder="1"/>
+        <input class="input" id="ef-epfrom" type="number" min="1" placeholder="1"/>
       </div>
-      <div class="field">
+      <div>
         <label class="label">Ep To</label>
-        <input class="input-field" id="ef-epto" type="number" min="1" placeholder="3"/>
+        <input class="input" id="ef-epto" type="number" min="1" placeholder="optional"/>
       </div>
     </div>
-    <div class="hint-pill" id="ef-ep-hint" onclick="applyHint()"></div>
   </div>
 
   <div class="card">
-    <div class="card-title">📅 Date &amp; notes</div>
-    <div class="field">
-      <label class="label">Date</label>
-      <input class="input-field" id="ef-date" type="date"/>
-      <span class="err-msg" id="ef-date-err">⚠ Date cannot be in the future</span>
+    <div class="card-title">📅 Date &amp; <em>rating</em></div>
+    <label class="label">Date</label>
+    <input class="input" id="ef-date" type="date"/>
+    <div class="err-msg" id="ef-date-err">⚠ Date cannot be in the future</div>
+
+    <label class="label" style="margin-top:12px;">Rating <span style="color:var(--ink-dim);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+    <div class="star-row">
+      <span class="star" onclick="setRating(1)">★</span>
+      <span class="star" onclick="setRating(2)">★</span>
+      <span class="star" onclick="setRating(3)">★</span>
+      <span class="star" onclick="setRating(4)">★</span>
+      <span class="star" onclick="setRating(5)">★</span>
+      <span class="star-clear" onclick="setRating(0)">Clear</span>
     </div>
-    <div class="field" style="margin-top:10px;">
-      <label class="label">Rating <span style="color:var(--ink-dim);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
-        <div id="star-row" style="display:flex;gap:4px;">
-          <span class="star" data-v="1" onclick="setRating(1)">★</span>
-          <span class="star" data-v="2" onclick="setRating(2)">★</span>
-          <span class="star" data-v="3" onclick="setRating(3)">★</span>
-          <span class="star" data-v="4" onclick="setRating(4)">★</span>
-          <span class="star" data-v="5" onclick="setRating(5)">★</span>
-        </div>
-        <span id="rating-label" style="font-family:'Manrope',sans-serif;font-size:12px;color:var(--ink-dim);min-width:60px;"></span>
-        <span onclick="setRating(0)" style="font-size:11px;color:var(--ink-dim);cursor:pointer;text-decoration:underline;margin-left:4px;">Clear</span>
-      </div>
-    </div>
-    <div class="field" style="margin-top:10px;">
-      <label class="label">Notes</label>
-      <textarea class="input-field" id="ef-notes" rows="3" placeholder="Optional notes…"></textarea>
-    </div>
+
+    <label class="label" style="margin-top:12px;">Notes</label>
+    <textarea class="input" id="ef-notes" rows="2" placeholder="Optional notes…" style="resize:none;"></textarea>
   </div>
+
+  <button class="btn btn-primary" onclick="saveEntry()" style="margin-bottom:18px;">💾 Save Entry</button>
+
+  <div class="card">
+    <div class="card-title">🕒 Recent <em>entries</em></div>
+    <div id="recent-list"></div>
+  </div>
+
+  <button class="btn btn-secondary" onclick="openSettings()" style="margin-top:14px;">⚙️ Settings</button>
 </div>
 
-<div class="btn-row">
-  <button class="btn btn-secondary" onclick="resetForm()">Clear</button>
-  <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
-</div>
-
-<div style="height:20px;"></div>
-<div class="divider"></div>
-<div class="recent-section" style="padding-top:16px;">
-  <div class="section-label">Recent entries</div>
-  <div id="recent-list"></div>
-</div>
+<button class="fab-debug" onclick="showDebug()">🔍</button>
 
 <div class="toast" id="toast"></div>
 
-<!-- DEBUG floating button + panel -->
-<button onclick="showDebug()" style="position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));right:20px;width:48px;height:48px;border-radius:50%;background:#d4603a;color:#fff;border:none;font-size:20px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:150;cursor:pointer;">🔍</button>
+<div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(44,26,14,.5);backdrop-filter:blur(4px);z-index:200;align-items:flex-end;justify-content:center;">
+  <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:28px 20px calc(28px + env(safe-area-inset-bottom));width:100%;max-width:480px;">
+    <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:14px;">Settings</div>
+    <label class="label">Apps Script URL</label>
+    <input class="input" id="settings-url" type="url"/>
+    <button class="btn btn-primary" onclick="saveSettings()" style="margin-top:14px;">Save</button>
+    <button class="btn btn-secondary" onclick="refreshShows()" style="margin-top:8px;">↻ Refresh Shows</button>
+    <button class="btn" onclick="closeSettings()" style="margin-top:8px;background:none;color:var(--ink-dim);">Close</button>
+  </div>
+</div>
+
 <div id="debug-modal" style="display:none;position:fixed;inset:0;background:rgba(44,26,14,.6);z-index:300;padding:20px;overflow:auto;" onclick="if(event.target===this)hideDebug()">
-  <div style="background:#fff;border-radius:14px;padding:16px;max-width:600px;margin:0 auto;font-family:monospace;font-size:11px;color:#333;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><strong style="font-family:-apple-system,sans-serif;color:#d4603a;font-size:15px;">🔍 Debug Storage</strong><button onclick="hideDebug()" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button></div>
-    <div id="debug-content" style="white-space:pre-wrap;word-break:break-all;background:#f9f1e3;padding:10px;border-radius:8px;max-height:70vh;overflow-y:auto;"></div>
-    <button onclick="copyDebug()" style="background:#d4603a;color:#fff;border:none;padding:10px;border-radius:8px;width:100%;margin-top:10px;font-size:13px;font-family:-apple-system,sans-serif;">📋 Copy All</button>
-  </div>
-</div>
-<script>
-function showDebug(){
-  const out = [];
-  const keys = ['sc:phoneEntries','sc:phoneWatching','sc:pendingSync','sc:scriptUrl'];
-  out.push('=== Phone localStorage ===\n');
-  keys.forEach(k=>{
-    const v = localStorage.getItem(k);
-    if(!v){out.push(k+': (empty)\n');return;}
-    try{
-      const p = JSON.parse(v);
-      if(Array.isArray(p)){
-        out.push(k+': '+p.length+' items');
-        out.push('--- last 3 ---');
-        p.slice(-3).forEach((it,i)=>out.push('['+(p.length-3+i)+']: '+JSON.stringify(it,null,2)));
-        out.push('');
-      } else out.push(k+': '+JSON.stringify(p,null,2)+'\n');
-    }catch{out.push(k+': '+v+'\n');}
-  });
-  document.getElementById('debug-content').textContent = out.join('\n');
-  document.getElementById('debug-modal').style.display='block';
-}
-function hideDebug(){document.getElementById('debug-modal').style.display='none';}
-function copyDebug(){
-  const txt = document.getElementById('debug-content').textContent;
-  navigator.clipboard.writeText(txt).then(()=>{
-    const t=document.getElementById('toast');t.textContent='✓ Copied!';t.classList.add('show');
-    setTimeout(()=>t.classList.remove('show'),1500);
-  });
-}
-</script>
-
-<!-- Settings modal -->
-<div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(44,26,14,.45);backdrop-filter:blur(4px);z-index:200;align-items:flex-end;justify-content:center;">
-  <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:28px 20px calc(28px + env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(44,26,14,.15);">
-    <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--ink);margin-bottom:6px;">Settings</div>
-    <div style="font-family:'Fraunces',serif;font-style:italic;font-size:13px;color:var(--ink-dim);margin-bottom:20px;">Update your Apps Script URL</div>
-    <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:6px;">Apps Script URL</div>
-    <input type="url" id="settings-url" style="width:100%;background:var(--cream);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px;font-family:'Manrope',sans-serif;color:var(--ink);outline:none;box-sizing:border-box;min-height:44px;" placeholder="https://script.google.com/macros/s/…/exec"/>
-    <div style="display:flex;gap:10px;margin-top:14px;">
-      <button onclick="closeSettings()" style="flex:1;padding:14px;border-radius:12px;border:1.5px solid var(--accent);background:#fff;color:var(--accent-dark);font-family:'Manrope',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Cancel</button>
-      <button onclick="saveSettings()" style="flex:1;padding:14px;border-radius:12px;border:none;background:var(--accent-dark);color:#fff;font-family:'Manrope',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Save</button>
-    </div>
+  <div style="background:#fff;border-radius:14px;padding:16px;max-width:560px;margin:0 auto;font-family:monospace;font-size:11px;color:#333;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><strong style="font-family:-apple-system,sans-serif;color:var(--accent);font-size:15px;">🔍 Debug</strong><button onclick="hideDebug()" style="background:none;border:none;font-size:18px;">✕</button></div>
+    <div id="debug-content" style="white-space:pre-wrap;word-break:break-all;background:#f9f1e3;padding:10px;border-radius:8px;max-height:65vh;overflow-y:auto;"></div>
+    <button onclick="copyDebug()" style="background:var(--accent);color:#fff;border:none;padding:10px;border-radius:8px;width:100%;margin-top:10px;font-size:13px;font-family:-apple-system,sans-serif;">📋 Copy All</button>
   </div>
 </div>
 
 <script>
-// ── Sidebar ──────────────────────────────────────────────────────────────────
-function openSidebar()  { document.getElementById('sidebar').classList.add('open');    document.getElementById('sidebar-overlay').classList.add('open'); }
-function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-overlay').classList.remove('open'); }
+const URL_KEY      = 'sc:scriptUrl';
+const ENTRIES_KEY  = 'sc:phoneEntries';
+const WATCHING_KEY = 'sc:phoneWatching';
+const PENDING_KEY  = 'sc:pendingSync';
+const PLATFORMS    = ['','Netflix','Disney+','Apple TV+','Prime Video','HBO Max','Hulu','Peacock','BBC','ITVX','Gimy','Cinema','Other'];
 
-const PLATFORMS   = ["Apple TV+","BBC","Cinema","Disney+","Gimy","HBO Max","Hulu","ITVX","Netflix","Paramount+","Peacock","Plane","Prime Video","Other"];
-const SCRIPT_KEY  = 'sc:sheetsUrl';
-const PENDING_KEY = 'sc:pendingSync';
-const WATCHING_KEY= 'sc:phoneWatching';
-const ENTRIES_KEY = 'sc:phoneEntries';
+let watching = [], entries = [], rating = 0;
 
-let watching = [], entries = [], hintNextEp = null;
-
-// ── Storage ──────────────────────────────────────────────────────────────────
-function load() {
-  try { watching = JSON.parse(localStorage.getItem(WATCHING_KEY) || '[]'); } catch { watching = []; }
-  try { entries  = JSON.parse(localStorage.getItem(ENTRIES_KEY)  || '[]'); } catch { entries  = []; }
+function getUrl(){ return localStorage.getItem(URL_KEY) || ''; }
+function setUrl(u){ localStorage.setItem(URL_KEY, u.trim()); }
+function load(){
+  try{ entries  = JSON.parse(localStorage.getItem(ENTRIES_KEY)  || '[]'); }catch{ entries = []; }
+  try{ watching = JSON.parse(localStorage.getItem(WATCHING_KEY) || '[]'); }catch{ watching = []; }
 }
-function saveEntries() { localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries)); }
-function getPending()  { try { return JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); } catch { return []; } }
+function saveEntries(){ localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries)); }
+function getPending(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); }catch{ return []; } }
 function savePending(a){ localStorage.setItem(PENDING_KEY, JSON.stringify(a)); }
-function getUrl()      { return localStorage.getItem(SCRIPT_KEY)||''; }
-function setUrl(u)     { localStorage.setItem(SCRIPT_KEY, u.trim()); }
 
-// ── Setup banner ─────────────────────────────────────────────────────────────
-function renderSetupBanner() {
-  const wrap = document.getElementById('setup-banner-wrap');
-  if(getUrl()) { wrap.innerHTML=''; updateSyncStatus(); return; }
-  wrap.innerHTML = `<div class="setup-banner">
-    <div class="setup-inner">
-      <strong>🔗 Connect to Google Sheets</strong><br>
-      Paste your Apps Script URL to enable syncing.
-      <div class="setup-url-row">
-        <input type="url" id="url-input" placeholder="https://script.google.com/macros/s/…/exec"/>
-        <button onclick="saveUrl()">Save</button>
-      </div>
-    </div>
-  </div>`;
+let toastTimer;
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function saveUrl() {
-  const val = document.getElementById('url-input').value.trim();
-  if(!val.startsWith('https://script.google.com')) { showToast('⚠ Paste the full Apps Script URL', true); return; }
-  setUrl(val);
-  renderSetupBanner();
-  showToast('✓ Connected! Loading your shows…');
-  refreshWatching();
+function renderBanner(){
+  const wrap = document.getElementById('setup-banner');
+  if(getUrl()){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="banner"><div class="banner-title">⚠ Setup needed</div><div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">Tap ⚙️ Settings below and paste your Apps Script URL to start syncing.</div></div>';
 }
 
-// ── Sync status ───────────────────────────────────────────────────────────────
-function updateSyncStatus() {
+function fillPlatforms(){
+  const sel = document.getElementById('ef-platform');
+  sel.innerHTML = PLATFORMS.map(p => '<option value="'+p+'">'+(p||'—')+'</option>').join('');
+}
+
+function fillPick(){
+  const sel = document.getElementById('ef-pick');
+  sel.innerHTML = '<option value="">— Type manually below —</option>';
+  const list = [...watching].sort((a,b) => String(a.title||'').localeCompare(String(b.title||'')));
+  list.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify({
+      title:    String(o.title || ''),
+      season:   String(o.season || ''),
+      platform: String(o.platform || ''),
+      totalEp:  String(o.totalEp || '')
+    });
+    opt.textContent = (o.title || '?') + (o.season ? ' · S' + o.season : '');
+    sel.appendChild(opt);
+  });
+}
+
+function onPick(){
+  const val = document.getElementById('ef-pick').value;
+  if(!val) return;
+  let o;
+  try{ o = JSON.parse(val); }catch{ return; }
+  document.getElementById('ef-title').value    = o.title || '';
+  document.getElementById('ef-type').value     = 'TV Show';
+  const platSel = document.getElementById('ef-platform');
+  if(PLATFORMS.includes(o.platform)) platSel.value = o.platform;
+  else platSel.value = '';
+  document.getElementById('ef-season').value   = o.season || '';
+  document.getElementById('ef-totalep').value  = o.totalEp || '';
+  onTypeChange();
+}
+
+function onTypeChange(){
+  const isMovie = document.getElementById('ef-type').value === 'Movie';
+  document.getElementById('tv-card').style.display = isMovie ? 'none' : 'block';
+}
+
+function setRating(n){
+  rating = n;
+  document.querySelectorAll('.star').forEach((el, i) => {
+    el.classList.toggle('on', i < n);
+  });
+}
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso.length > 10 ? iso : iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+function saveEntry(){
+  const title = document.getElementById('ef-title').value.trim();
+  if(!title){ toast('Please enter a title', true); return; }
+
+  const type = document.getElementById('ef-type').value;
+  const seasonEl = document.getElementById('ef-season');
+  const seasonErr = document.getElementById('ef-season-err');
+  const season = seasonEl.value.trim();
+  if(type === 'TV Show' && !season){
+    seasonErr.classList.add('show');
+    seasonEl.classList.add('error');
+    toast('Season required', true);
+    return;
+  }
+  seasonErr.classList.remove('show');
+  seasonEl.classList.remove('error');
+
+  const date = document.getElementById('ef-date').value;
+  const dateErr = document.getElementById('ef-date-err');
+  if(!date || date > todayStr()){
+    dateErr.classList.add('show');
+    toast('Pick a valid date', true);
+    return;
+  }
+  dateErr.classList.remove('show');
+
+  const platform = document.getElementById('ef-platform').value;
+  const epFrom   = document.getElementById('ef-epfrom').value.trim();
+  const epTo     = document.getElementById('ef-epto').value.trim();
+  const totalEp  = document.getElementById('ef-totalep').value.trim();
+  const notes    = document.getElementById('ef-notes').value;
+
+  const isRange = type === 'TV Show' && epFrom && epTo && parseInt(epTo) > parseInt(epFrom);
+  const isMovie = type === 'Movie';
+
+  function buildEntry(epValue, useId){
+    return {
+      id:        useId,
+      title:     title,
+      type:      type,
+      platform:  String(platform || ''),
+      season:    isMovie ? '' : String(season || ''),
+      episode:   isMovie ? '' : String(epValue || ''),
+      episodeTo: '',
+      totalEp:   isMovie ? '' : String(totalEp || ''),
+      date:      date,
+      notes:     String(notes || ''),
+      rating:    rating || ''
+    };
+  }
+
+  const newEntries = [];
+  const ts = Date.now();
+  if(isRange){
+    for(let ep = parseInt(epFrom); ep <= parseInt(epTo); ep++){
+      newEntries.push(buildEntry(String(ep), ts + ep));
+    }
+  } else {
+    newEntries.push(buildEntry(epFrom, ts));
+  }
+
+  load();
+  newEntries.forEach(e => entries.push(e));
+  saveEntries();
+
   const pending = getPending();
-  const dot = document.getElementById('sync-dot');
-  const lbl = document.getElementById('sync-label');
-  if(!getUrl()) { dot.className='sync-dot pending'; lbl.textContent='Setup'; return; }
-  if(pending.length > 0) { dot.className='sync-dot pending'; lbl.textContent=`${pending.length} pending`; }
-  else                   { dot.className='sync-dot';         lbl.textContent='Synced'; }
+  newEntries.forEach(e => pending.push(e));
+  savePending(pending);
+
+  toast('✓ Saved! Syncing…');
+  resetForm();
+  renderRecent();
+  updateSyncStatus();
+  syncPending();
 }
 
-// ── Refresh watching list from Sheets ────────────────────────────────────────
-async function refreshWatching() {
+function resetForm(){
+  document.getElementById('ef-pick').value     = '';
+  document.getElementById('ef-title').value    = '';
+  document.getElementById('ef-season').value   = '';
+  document.getElementById('ef-totalep').value  = '';
+  document.getElementById('ef-epfrom').value   = '';
+  document.getElementById('ef-epto').value     = '';
+  document.getElementById('ef-notes').value    = '';
+  document.getElementById('ef-type').value     = 'TV Show';
+  document.getElementById('ef-platform').value = '';
+  document.getElementById('ef-date').value     = todayStr();
+  document.getElementById('ef-season-err').classList.remove('show');
+  document.getElementById('ef-date-err').classList.remove('show');
+  setRating(0);
+  onTypeChange();
+}
+
+function updateSyncStatus(){
+  const pending = getPending();
+  const dot = document.getElementById('dot');
+  const lbl = document.getElementById('sync-label');
+  if(!getUrl()){ dot.classList.add('pending'); lbl.textContent = 'Setup'; return; }
+  if(pending.length > 0){ dot.classList.add('pending'); lbl.textContent = pending.length + ' pending'; }
+  else                  { dot.classList.remove('pending'); lbl.textContent = 'Synced'; }
+}
+
+async function syncPending(){
   const url = getUrl();
-  if(!url) { renderSetupBanner(); return; }
-  document.getElementById('watching-status').textContent = '⏳ Loading shows…';
-  try {
+  if(!url) return;
+  const pending = getPending();
+  if(!pending.length) return;
+
+  const stillPending = [];
+  let synced = 0;
+
+  for(const entry of pending){
+    try{
+      const res = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ op: 'upsert', sheet: 'ENTRIES', data: entry }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if(data.success){
+        synced++;
+      } else {
+        console.error('[sync] rejected', entry, data);
+        stillPending.push(entry);
+      }
+    } catch(err){
+      console.error('[sync] network error', err);
+      stillPending.push(entry);
+    }
+  }
+
+  savePending(stillPending);
+  if(stillPending.length === 0){
+    toast('✓ ' + synced + ' synced');
+  } else {
+    toast('⚠ ' + synced + ' synced, ' + stillPending.length + ' failed', true);
+  }
+  updateSyncStatus();
+  renderRecent();
+  refreshShows();
+}
+
+async function refreshShows(){
+  const url = getUrl();
+  if(!url){ toast('Setup URL first', true); return; }
+  try{
     const res  = await fetch(url + '?type=watching');
     const data = await res.json();
-    if(data.error) throw new Error(data.error);
     const list = data.watching || [];
     localStorage.setItem(WATCHING_KEY, JSON.stringify(list));
     watching = list;
     fillPick();
-    const lbl = document.getElementById('watching-status');
-    lbl.textContent = list.length > 0 ? `✓ ${list.length} shows loaded` : 'No shows found — push from main tracker first';
-    setTimeout(()=>lbl.textContent='', 3000);
-  } catch(err) {
-    document.getElementById('watching-status').textContent = '⚠ Could not load shows';
+  } catch(err){
+    toast('⚠ Could not load shows', true);
   }
 }
 
-// ── Sync pending entries ──────────────────────────────────────────────────────
-async function syncPending() {
-  const url = getUrl();
-  if(!url) { renderSetupBanner(); return; }
-  const pending = getPending();
-  if(!pending.length) { showToast('✓ Nothing to sync'); return; }
-  const btn = document.getElementById('sync-btn');
-  btn.classList.add('syncing');
-  document.getElementById('sync-label').textContent = 'Syncing…';
-  // Whitelist fields before sending — drop anything unexpected.
-  // Send each entry via op:upsert (same path screentime-sync uses).
-  const ALLOWED = ['id','title','type','platform','season','episode','episodeTo','totalEp','date','notes','rating'];
-  const stillPending = [];
-  let synced = 0;
-  for (const entry of pending) {
-    const cleaned = {};
-    ALLOWED.forEach(k => { if (entry[k] !== undefined) cleaned[k] = entry[k]; });
-    try {
-      const res  = await fetch(url, {
-        method:'POST',
-        body: JSON.stringify({ op: 'upsert', sheet: 'ENTRIES', data: cleaned }),
-        headers:{'Content-Type':'text/plain'}
-      });
-      const data = await res.json();
-      if (data.success) {
-        synced++;
-      } else {
-        // Validation rejected or other error — keep it in pending and log it
-        console.error('[syncPending] rejected:', cleaned, data);
-        stillPending.push(entry);
-      }
-    } catch (err) {
-      console.error('[syncPending] network error:', err);
-      stillPending.push(entry);
-    }
-  }
-  savePending(stillPending);
-  if (stillPending.length === 0) {
-    showToast(`✓ ${synced} entry/entries synced!`);
-  } else if (synced > 0) {
-    showToast(`⚠ ${synced} synced, ${stillPending.length} failed (see console)`, true);
-  } else {
-    showToast(`⚠ All ${stillPending.length} failed — will retry`, true);
-  }
-  btn.classList.remove('syncing');
-  updateSyncStatus();
-  renderRecent();
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function todayStr() {
-  const d=new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function toTitle(s){ return s.replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1)); }
-function fmt(iso){ if(!iso)return''; return new Date(iso+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
-
-// ── Platforms & pick ──────────────────────────────────────────────────────────
-function fillPlatforms() {
-  document.getElementById('ef-platform').innerHTML = PLATFORMS.map(p=>`<option value="${p}">${p}</option>`).join('');
-}
-function fillPick() {
-  const sel = document.getElementById('ef-pick');
-  sel.innerHTML = '<option value="">— Choose a show —</option>';
-  [...watching].sort((a,b)=>String(a.title).localeCompare(String(b.title))).forEach(o=>{
-    const opt=document.createElement('option');
-    opt.value=JSON.stringify({title:o.title,season:o.season,platform:o.platform,totalEp:o.totalEp});
-    opt.textContent=o.title+(o.season?' · S'+o.season:'');
-    sel.appendChild(opt);
-  });
-}
-function onPick() {
-  const val = document.getElementById('ef-pick').value;
-  if(!val) return;
-  try {
-    const o = JSON.parse(val);
-    document.getElementById('ef-title').value    = o.title||'';
-    document.getElementById('ef-type').value     = 'TV Show';
-    document.getElementById('ef-platform').value = o.platform||'Netflix';
-    document.getElementById('ef-season').value   = o.season||'';
-    document.getElementById('ef-totalep').value  = o.totalEp||'';
-    onTypeChange(); onSeasonChange();
-  } catch {}
-}
-
-// ── Type / season ─────────────────────────────────────────────────────────────
-function onTypeChange() {
-  document.getElementById('tv-card').style.display = document.getElementById('ef-type').value==='Movie'?'none':'block';
-}
-function onTitleChange(){ onSeasonChange(); }
-function onSeasonChange() {
-  const title=document.getElementById('ef-title').value.trim().toLowerCase();
-  const season=document.getElementById('ef-season').value;
-  const hint=document.getElementById('ef-ep-hint');
-  hintNextEp=null;
-  if(!title||!season){hint.style.display='none';return;}
-  const prev=entries.filter(e=>e.title.trim().toLowerCase()===title&&String(e.season)===String(season))
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(prev.length){
-    const lastEp=parseInt(prev[0].episodeTo||prev[0].episode||'0');
-    if(lastEp>0){hintNextEp=lastEp+1;hint.textContent=`▶ Last watched Ep ${lastEp} — tap to continue from Ep ${hintNextEp}`;hint.style.display='block';return;}
-  }
-  hint.style.display='none';
-}
-function applyHint(){ if(hintNextEp) document.getElementById('ef-epfrom').value=hintNextEp; }
-
-// ── Save ──────────────────────────────────────────────────────────────────────
-function saveEntry() {
-  const title=toTitle(document.getElementById('ef-title').value.trim());
-  if(!title){showToast('Please enter a title',true);return;}
-  const type=document.getElementById('ef-type').value;
-  const seasonVal=document.getElementById('ef-season').value;
-  const seasonErr=document.getElementById('ef-season-err');
-  if(type==='TV Show'&&!seasonVal){seasonErr.style.display='block';document.getElementById('ef-season').classList.add('error');return;}
-  seasonErr.style.display='none';document.getElementById('ef-season').classList.remove('error');
-  const dateVal=document.getElementById('ef-date').value;
-  const dateErr=document.getElementById('ef-date-err');
-  if(!dateVal||dateVal>todayStr()){dateErr.style.display='block';document.getElementById('ef-date').classList.add('error');return;}
-  dateErr.style.display='none';document.getElementById('ef-date').classList.remove('error');
-  const epFrom=document.getElementById('ef-epfrom').value;
-  const epTo=document.getElementById('ef-epto').value;
-  const isRange=type==='TV Show'&&epFrom&&epTo&&parseInt(epTo)>parseInt(epFrom);
-  const platform=document.getElementById('ef-platform').value;
-  // Build entry with explicit field types — guard against scrambled data.
-  // Each field is read directly from its DOM element + coerced to expected type.
-  function buildBase() {
-    const e = {
-      title:     String(title || ''),
-      type:      String(type || ''),
-      season:    String(seasonVal || ''),
-      episode:   String(epFrom || ''),
-      episodeTo: isRange ? String(epTo || '') : '',
-      totalEp:   String(document.getElementById('ef-totalep').value || ''),
-      platform:  String(platform || ''),
-      date:      String(dateVal || ''),
-      notes:     String(document.getElementById('ef-notes').value || ''),
-      rating:    currentRating || ''
-    };
-    // Sanity check: numeric fields must be empty or pure digits;
-    // platform must NOT be a pure number; type must be 'TV Show' or 'Movie'.
-    const checks = {
-      season:    v => v === '' || /^\d+$/.test(v),
-      episode:   v => v === '' || /^\d+$/.test(v),
-      episodeTo: v => v === '' || /^\d+$/.test(v),
-      totalEp:   v => v === '' || /^\d+$/.test(v),
-      platform:  v => v === '' || !/^\d+$/.test(v),
-      type:      v => v === 'TV Show' || v === 'Movie',
-      title:     v => v.length > 0
-    };
-    const bad = [];
-    for (const f in checks) if (!checks[f](e[f])) bad.push(f+'='+JSON.stringify(e[f]));
-    if (bad.length > 0) {
-      showToast('⚠ Form data corrupt: '+bad.join(', '), true);
-      console.error('[saveEntry] validation failed:', bad, e);
-      return null;
-    }
-    return e;
-  }
-  const base = buildBase();
-  if (!base) return;
-  const newEntries=[];
-  if(isRange){const ts=Date.now();for(let ep=parseInt(epFrom);ep<=parseInt(epTo);ep++)newEntries.push({...base,id:ts+ep,episode:String(ep),episodeTo:''});}
-  else newEntries.push({...base,id:Date.now()});
-  load();
-  newEntries.forEach(e=>entries.push(e));
-  saveEntries();
-  const pending=getPending();
-  newEntries.forEach(e=>pending.push(e));
-  savePending(pending);
-  const lastEpNum  = parseInt(isRange ? epTo : epFrom) || 0;
-  const totalEpNum = parseInt(document.getElementById('ef-totalep').value) || 0;
-  showToast('✓ Saved! Syncing…');
-  resetForm(); renderRecent(); updateSyncStatus();
-  syncPending().then(() => {
-    // After sync, refresh watching list so new shows appear and completed ones disappear
-    if(type==='TV Show') refreshWatching();
-  });
-}
-
-// ── Reset ─────────────────────────────────────────────────────────────────────
-function resetForm() {
-  ['ef-pick','ef-title','ef-season','ef-totalep','ef-epfrom','ef-epto','ef-notes'].forEach(id=>document.getElementById(id).value='');
-  setRating(0);
-  document.getElementById('ef-type').value='TV Show';
-  document.getElementById('ef-date').value=todayStr();
-  document.getElementById('ef-ep-hint').style.display='none';
-  document.getElementById('ef-season-err').style.display='none';
-  document.getElementById('ef-date-err').style.display='none';
-  document.getElementById('ef-season').classList.remove('error');
-  document.getElementById('ef-date').classList.remove('error');
-  onTypeChange();
-}
-
-// ── Toast ──────────────────────────────────────────────────────────────────────
-let toastTimer;
-function showToast(msg,isErr=false){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.style.background=isErr?'var(--warn)':'var(--ink)';
-  t.classList.add('show');clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
-}
-
-// ── Recent ────────────────────────────────────────────────────────────────────
 function renderRecent(){
   load();
-  const pending=getPending();
-  const pendingIds=new Set(pending.map(e=>String(e.id)));
-  const list=document.getElementById('recent-list');
-  const recent=[...entries].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10);
-  if(!recent.length){list.innerHTML='<div class="empty-msg">No entries yet.</div>';return;}
-  list.innerHTML=recent.map(e=>{
-    const ep=e.episode?(e.episodeTo?`Ep ${e.episode}–${e.episodeTo}`:`Ep ${e.episode}`):'';
-    const sub=[e.platform,e.season?'S'+e.season:'',ep].filter(Boolean).join(' · ');
-    const stars = e.rating ? '★'.repeat(e.rating)+'☆'.repeat(5-e.rating) : '';
-    const synced=!pendingIds.has(String(e.id));
-    return `<div class="recent-item">
-      <div class="ri-left"><div class="ri-title">${e.title}</div><div class="ri-sub">${sub}</div>${stars?`<div style="font-size:11px;color:var(--accent);letter-spacing:1px;margin-top:2px;">${stars}</div>`:''}</div>
-      <div class="ri-right"><div class="ri-date">${fmt(e.date)}</div><div class="ri-sync ${synced?'synced':'pending'}">${synced?'✓ synced':'⏳ pending'}</div></div>
-    </div>`;
+  const pending = getPending();
+  const pendingIds = new Set(pending.map(e => String(e.id)));
+  const list = document.getElementById('recent-list');
+  const recent = [...entries].sort((a,b) => String(b.date||'').localeCompare(String(a.date||''))).slice(0, 10);
+  if(!recent.length){
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink-dim);text-align:center;padding:12px 0;">No entries yet.</div>';
+    return;
+  }
+  list.innerHTML = recent.map(e => {
+    let ep = '';
+    if(e.episode){
+      ep = e.episodeTo ? 'Ep ' + e.episode + '–' + e.episodeTo : 'Ep ' + e.episode;
+    }
+    const subParts = [e.platform, e.season ? 'S' + e.season : '', ep].filter(Boolean);
+    const sub = subParts.join(' · ');
+    const stars = e.rating ? '★'.repeat(Number(e.rating)) + '☆'.repeat(5 - Number(e.rating)) : '';
+    const synced = !pendingIds.has(String(e.id));
+    return '<div class="recent-card">' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="recent-title">' + escapeHtml(e.title || '') + '</div>' +
+          (sub ? '<div class="recent-sub">' + escapeHtml(sub) + '</div>' : '') +
+          (stars ? '<div class="recent-stars">' + stars + '</div>' : '') +
+        '</div>' +
+        '<div class="recent-meta">' +
+          '<div>' + fmtDate(e.date) + '</div>' +
+          '<div style="margin-top:2px;color:' + (synced ? '#7aa860' : 'var(--warn)') + ';">' + (synced ? '✓ synced' : '⏳ pending') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 
-// ── Settings modal ───────────────────────────────────────────────────────────
-function openSettings() {
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openSettings(){
   document.getElementById('settings-url').value = getUrl();
   document.getElementById('settings-modal').style.display = 'flex';
 }
-function closeSettings() {
+function closeSettings(){
   document.getElementById('settings-modal').style.display = 'none';
 }
-function saveSettings() {
-  const val = document.getElementById('settings-url').value.trim();
-  if(!val.startsWith('https://script.google.com')) { showToast('⚠ Paste the full Apps Script URL', true); return; }
-  setUrl(val);
+function saveSettings(){
+  const v = document.getElementById('settings-url').value.trim();
+  if(!v.startsWith('https://script.google.com')){ toast('Paste a full Apps Script URL', true); return; }
+  setUrl(v);
+  renderBanner();
+  toast('✓ Saved!');
   closeSettings();
-  showToast('✓ URL updated! Refreshing shows…');
-  renderSetupBanner();
-  updateSyncStatus();
-  refreshWatching();
+  refreshShows();
 }
 
-// ── Rating ───────────────────────────────────────────────────────────────────
-let currentRating = 0;
-const RATING_LABELS = ['','😕 Poor','😐 Fair','🙂 Good','😊 Great','🤩 Amazing'];
-
-function setRating(val) {
-  currentRating = val;
-  const stars = document.querySelectorAll('.star');
-  stars.forEach(s => {
-    s.classList.toggle('active', parseInt(s.dataset.v) <= val);
+function showDebug(){
+  const out = ['=== Phone localStorage ==='];
+  ['sc:phoneEntries','sc:phoneWatching','sc:pendingSync','sc:scriptUrl'].forEach(k => {
+    const v = localStorage.getItem(k);
+    if(!v){ out.push(k + ': (empty)'); return; }
+    try{
+      const p = JSON.parse(v);
+      if(Array.isArray(p)){
+        out.push(k + ': ' + p.length + ' items');
+        out.push('--- last 3 ---');
+        p.slice(-3).forEach((it, i) => out.push('[' + (p.length - 3 + i) + ']: ' + JSON.stringify(it, null, 2)));
+        out.push('');
+      } else out.push(k + ': ' + JSON.stringify(p, null, 2));
+    } catch{ out.push(k + ': ' + v); }
   });
-  const lbl = document.getElementById('rating-label');
-  lbl.textContent = val > 0 ? RATING_LABELS[val] : '';
+  document.getElementById('debug-content').textContent = out.join('\n');
+  document.getElementById('debug-modal').style.display = 'block';
+}
+function hideDebug(){ document.getElementById('debug-modal').style.display = 'none'; }
+function copyDebug(){
+  const txt = document.getElementById('debug-content').textContent;
+  navigator.clipboard.writeText(txt).then(() => toast('✓ Copied'));
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-load();
 fillPlatforms();
+load();
 fillPick();
-document.getElementById('ef-date').value=todayStr();
-onTypeChange();
-renderSetupBanner();
+document.getElementById('ef-date').value = todayStr();
 renderRecent();
+renderBanner();
 updateSyncStatus();
-// Auto-refresh watching list on load if URL is set
-if(getUrl()) refreshWatching();
+if(getUrl()) refreshShows();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
 </script>
 </body>
 </html>
