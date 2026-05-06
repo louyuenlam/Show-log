@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Fix Title</title>
+<style>
+body{font-family:'Segoe UI',sans-serif;background:#fdf8f2;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;box-sizing:border-box;}
+.box{background:#fff;border-radius:16px;padding:32px;max-width:500px;width:100%;box-shadow:0 4px 24px rgba(44,26,14,.1);}
+h2{color:#d4603a;margin:0 0 8px;}
+p{color:#6b4c3b;font-size:14px;line-height:1.6;margin-bottom:14px;}
+.btn{width:100%;padding:13px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:#b84e2a;color:#fff;}
+.btn:disabled{opacity:.5;}
+.log{font-size:12px;color:#6b4c3b;line-height:1.8;margin-top:14px;background:#f9f5f0;border-radius:8px;padding:12px;display:none;max-height:240px;overflow-y:auto;}
+.success{color:#5a9e57;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>✏️ Fix Title Typo</h2>
+  <p><strong>From:</strong> Margo's Got Money Trouble<br><strong>To:</strong> Margo's Got Money Troubles</p>
+  <button class="btn" id="go" onclick="run()">▶ Fix Title</button>
+  <div class="log" id="log"></div>
+</div>
+<script>
+const URL = 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
+const OLD = "Margo's Got Money Trouble";
+const NEW = "Margo's Got Money Troubles";
+
+function log(m,c=''){const el=document.getElementById('log');el.style.display='block';el.innerHTML+='<div class="'+c+'">'+m+'</div>';el.scrollTop=el.scrollHeight;}
+
+async function post(b){
+  const r=await fetch(URL,{method:'POST',mode:'cors',body:JSON.stringify(b),headers:{'Content-Type':'text/plain'}});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error);
+  return d;
+}
+
+async function run(){
+  document.getElementById('go').disabled=true;
+  log('⏳ Fetching data…');
+  try{
+    const res=await fetch(URL);
+    const data=await res.json();
+
+    // Find matches
+    const matchEntries = (data.entries||[]).filter(e=>String(e.title).trim().toLowerCase()===OLD.toLowerCase());
+    const matchOngoing = (data.ongoing||[]).filter(o=>String(o.title).trim().toLowerCase()===OLD.toLowerCase());
+    const matchWishlist= (data.wishlist||[]).filter(w=>String(w.title).trim().toLowerCase()===OLD.toLowerCase());
+
+    log(`Found ${matchEntries.length} entries, ${matchOngoing.length} ongoing, ${matchWishlist.length} wishlist`);
+
+    let updated = 0;
+    for(const e of matchEntries){
+      await post({op:'upsert', sheet:'ENTRIES', data:{...e, title:NEW}});
+      updated++;
+      log(`✓ Entry: ${e.id}`);
+      await new Promise(r=>setTimeout(r,250));
+    }
+    for(const o of matchOngoing){
+      await post({op:'upsert', sheet:'ONGOING', data:{...o, title:NEW}});
+      updated++;
+      log(`✓ Ongoing: ${o.id}`);
+      await new Promise(r=>setTimeout(r,250));
+    }
+    for(const w of matchWishlist){
+      await post({op:'upsert', sheet:'WISHLIST', data:{...w, title:NEW}});
+      updated++;
+      log(`✓ Wishlist: ${w.id}`);
+      await new Promise(r=>setTimeout(r,250));
+    }
+
+    log(`<span class="success">✅ Done! Updated ${updated} record(s).</span>`);
+  }catch(e){
+    log('⚠ Error: '+e.message);
+  }finally{
+    document.getElementById('go').disabled=false;
+  }
+}
+</script>
+</body>
+</html>
