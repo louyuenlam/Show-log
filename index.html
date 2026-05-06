@@ -551,32 +551,43 @@ async function syncPending() {
   btn.classList.add('syncing');
   document.getElementById('sync-label').textContent = 'Syncing…';
   // Whitelist fields before sending — drop anything unexpected.
-  // This is a defence in depth: even if pending got polluted somehow,
-  // only known fields reach the Apps Script.
+  // Send each entry via op:upsert (same path screentime-sync uses).
   const ALLOWED = ['id','title','type','platform','season','episode','episodeTo','totalEp','date','notes','rating'];
-  const cleaned = pending.map(e => {
-    const out = {};
-    ALLOWED.forEach(k => { if (e[k] !== undefined) out[k] = e[k]; });
-    return out;
-  });
-  try {
-    const res  = await fetch(url, { method:'POST', body: JSON.stringify(cleaned), headers:{'Content-Type':'text/plain'} });
-    const data = await res.json();
-    if(data.success || data.saved >= 0) {
-      // If the Apps Script rejected any entries, keep them in pending and warn
-      if(data.rejected && data.rejected.length > 0) {
-        const rejectedIds = new Set(data.rejected.map(r => String(r.id)));
-        const stillPending = pending.filter(p => rejectedIds.has(String(p.id)));
-        savePending(stillPending);
-        console.error('[syncPending] rejected entries:', data.rejected);
-        showToast('⚠ '+data.rejected.length+' entr(ies) rejected (see console)', true);
+  const stillPending = [];
+  let synced = 0;
+  for (const entry of pending) {
+    const cleaned = {};
+    ALLOWED.forEach(k => { if (entry[k] !== undefined) cleaned[k] = entry[k]; });
+    try {
+      const res  = await fetch(url, {
+        method:'POST',
+        body: JSON.stringify({ op: 'upsert', sheet: 'ENTRIES', data: cleaned }),
+        headers:{'Content-Type':'text/plain'}
+      });
+      const data = await res.json();
+      if (data.success) {
+        synced++;
       } else {
-        savePending([]);
-        showToast(`✓ ${pending.length} entry/entries synced!`);
+        // Validation rejected or other error — keep it in pending and log it
+        console.error('[syncPending] rejected:', cleaned, data);
+        stillPending.push(entry);
       }
-    } else { showToast('⚠ Sync failed — will retry', true); }
-  } catch { showToast('⚠ No internet — saved locally', true); }
-  finally  { btn.classList.remove('syncing'); updateSyncStatus(); renderRecent(); }
+    } catch (err) {
+      console.error('[syncPending] network error:', err);
+      stillPending.push(entry);
+    }
+  }
+  savePending(stillPending);
+  if (stillPending.length === 0) {
+    showToast(`✓ ${synced} entry/entries synced!`);
+  } else if (synced > 0) {
+    showToast(`⚠ ${synced} synced, ${stillPending.length} failed (see console)`, true);
+  } else {
+    showToast(`⚠ All ${stillPending.length} failed — will retry`, true);
+  }
+  btn.classList.remove('syncing');
+  updateSyncStatus();
+  renderRecent();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
