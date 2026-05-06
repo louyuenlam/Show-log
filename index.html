@@ -407,6 +407,46 @@ textarea.input-field { resize: none; line-height: 1.5; }
 
 <div class="toast" id="toast"></div>
 
+<!-- DEBUG floating button + panel -->
+<button onclick="showDebug()" style="position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));right:20px;width:48px;height:48px;border-radius:50%;background:#d4603a;color:#fff;border:none;font-size:20px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:150;cursor:pointer;">🔍</button>
+<div id="debug-modal" style="display:none;position:fixed;inset:0;background:rgba(44,26,14,.6);z-index:300;padding:20px;overflow:auto;" onclick="if(event.target===this)hideDebug()">
+  <div style="background:#fff;border-radius:14px;padding:16px;max-width:600px;margin:0 auto;font-family:monospace;font-size:11px;color:#333;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><strong style="font-family:-apple-system,sans-serif;color:#d4603a;font-size:15px;">🔍 Debug Storage</strong><button onclick="hideDebug()" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button></div>
+    <div id="debug-content" style="white-space:pre-wrap;word-break:break-all;background:#f9f1e3;padding:10px;border-radius:8px;max-height:70vh;overflow-y:auto;"></div>
+    <button onclick="copyDebug()" style="background:#d4603a;color:#fff;border:none;padding:10px;border-radius:8px;width:100%;margin-top:10px;font-size:13px;font-family:-apple-system,sans-serif;">📋 Copy All</button>
+  </div>
+</div>
+<script>
+function showDebug(){
+  const out = [];
+  const keys = ['sc:phoneEntries','sc:phoneWatching','sc:pendingSync','sc:scriptUrl'];
+  out.push('=== Phone localStorage ===\n');
+  keys.forEach(k=>{
+    const v = localStorage.getItem(k);
+    if(!v){out.push(k+': (empty)\n');return;}
+    try{
+      const p = JSON.parse(v);
+      if(Array.isArray(p)){
+        out.push(k+': '+p.length+' items');
+        out.push('--- last 3 ---');
+        p.slice(-3).forEach((it,i)=>out.push('['+(p.length-3+i)+']: '+JSON.stringify(it,null,2)));
+        out.push('');
+      } else out.push(k+': '+JSON.stringify(p,null,2)+'\n');
+    }catch{out.push(k+': '+v+'\n');}
+  });
+  document.getElementById('debug-content').textContent = out.join('\n');
+  document.getElementById('debug-modal').style.display='block';
+}
+function hideDebug(){document.getElementById('debug-modal').style.display='none';}
+function copyDebug(){
+  const txt = document.getElementById('debug-content').textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const t=document.getElementById('toast');t.textContent='✓ Copied!';t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),1500);
+  });
+}
+</script>
+
 <!-- Settings modal -->
 <div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(44,26,14,.45);backdrop-filter:blur(4px);z-index:200;align-items:flex-end;justify-content:center;">
   <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:28px 20px calc(28px + env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(44,26,14,.15);">
