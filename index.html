@@ -550,12 +550,30 @@ async function syncPending() {
   const btn = document.getElementById('sync-btn');
   btn.classList.add('syncing');
   document.getElementById('sync-label').textContent = 'Syncing…';
+  // Whitelist fields before sending — drop anything unexpected.
+  // This is a defence in depth: even if pending got polluted somehow,
+  // only known fields reach the Apps Script.
+  const ALLOWED = ['id','title','type','platform','season','episode','episodeTo','totalEp','date','notes','rating'];
+  const cleaned = pending.map(e => {
+    const out = {};
+    ALLOWED.forEach(k => { if (e[k] !== undefined) out[k] = e[k]; });
+    return out;
+  });
   try {
-    const res  = await fetch(url, { method:'POST', body: JSON.stringify(pending), headers:{'Content-Type':'text/plain'} });
+    const res  = await fetch(url, { method:'POST', body: JSON.stringify(cleaned), headers:{'Content-Type':'text/plain'} });
     const data = await res.json();
     if(data.success || data.saved >= 0) {
-      savePending([]);
-      showToast(`✓ ${pending.length} entry/entries synced!`);
+      // If the Apps Script rejected any entries, keep them in pending and warn
+      if(data.rejected && data.rejected.length > 0) {
+        const rejectedIds = new Set(data.rejected.map(r => String(r.id)));
+        const stillPending = pending.filter(p => rejectedIds.has(String(p.id)));
+        savePending(stillPending);
+        console.error('[syncPending] rejected entries:', data.rejected);
+        showToast('⚠ '+data.rejected.length+' entr(ies) rejected (see console)', true);
+      } else {
+        savePending([]);
+        showToast(`✓ ${pending.length} entry/entries synced!`);
+      }
     } else { showToast('⚠ Sync failed — will retry', true); }
   } catch { showToast('⚠ No internet — saved locally', true); }
   finally  { btn.classList.remove('syncing'); updateSyncStatus(); renderRecent(); }
@@ -635,7 +653,43 @@ function saveEntry() {
   const epTo=document.getElementById('ef-epto').value;
   const isRange=type==='TV Show'&&epFrom&&epTo&&parseInt(epTo)>parseInt(epFrom);
   const platform=document.getElementById('ef-platform').value;
-  const base={title,type,season:seasonVal,episode:epFrom||'',episodeTo:isRange?epTo:'',totalEp:document.getElementById('ef-totalep').value,platform,date:dateVal,notes:document.getElementById('ef-notes').value,rating:currentRating||''};
+  // Build entry with explicit field types — guard against scrambled data.
+  // Each field is read directly from its DOM element + coerced to expected type.
+  function buildBase() {
+    const e = {
+      title:     String(title || ''),
+      type:      String(type || ''),
+      season:    String(seasonVal || ''),
+      episode:   String(epFrom || ''),
+      episodeTo: isRange ? String(epTo || '') : '',
+      totalEp:   String(document.getElementById('ef-totalep').value || ''),
+      platform:  String(platform || ''),
+      date:      String(dateVal || ''),
+      notes:     String(document.getElementById('ef-notes').value || ''),
+      rating:    currentRating || ''
+    };
+    // Sanity check: numeric fields must be empty or pure digits;
+    // platform must NOT be a pure number; type must be 'TV Show' or 'Movie'.
+    const checks = {
+      season:    v => v === '' || /^\d+$/.test(v),
+      episode:   v => v === '' || /^\d+$/.test(v),
+      episodeTo: v => v === '' || /^\d+$/.test(v),
+      totalEp:   v => v === '' || /^\d+$/.test(v),
+      platform:  v => v === '' || !/^\d+$/.test(v),
+      type:      v => v === 'TV Show' || v === 'Movie',
+      title:     v => v.length > 0
+    };
+    const bad = [];
+    for (const f in checks) if (!checks[f](e[f])) bad.push(f+'='+JSON.stringify(e[f]));
+    if (bad.length > 0) {
+      showToast('⚠ Form data corrupt: '+bad.join(', '), true);
+      console.error('[saveEntry] validation failed:', bad, e);
+      return null;
+    }
+    return e;
+  }
+  const base = buildBase();
+  if (!base) return;
   const newEntries=[];
   if(isRange){const ts=Date.now();for(let ep=parseInt(epFrom);ep<=parseInt(epTo);ep++)newEntries.push({...base,id:ts+ep,episode:String(ep),episodeTo:''});}
   else newEntries.push({...base,id:Date.now()});
