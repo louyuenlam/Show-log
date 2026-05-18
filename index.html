@@ -79,7 +79,7 @@ select.input{background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns
   <div class="head">
     <div>
       <div class="brand">Show<em>Log</em></div>
-      <div class="sub">Quick log on the go · v3.1</div>
+      <div class="sub">Quick log on the go · v3.2</div>
     </div>
     <div class="sync-pill"><span class="dot" id="dot"></span><span id="sync-label">Synced</span></div>
   </div>
@@ -425,13 +425,11 @@ async function syncPending(){
       continue;
     }
 
-    // 2. Update Ongoing for TV shows (skip movies)
-    if(entry.type !== 'TV Show') continue;
+    // 2. Update Ongoing for all types (TV shows and movies)
     try{
       await updateOngoing(url, entry, ongoing);
     } catch(err){
       console.warn('[sync] could not update ongoing for', entry.title, err);
-      // Don't re-queue — entry itself was saved fine, ongoing is best-effort
     }
   }
 
@@ -446,73 +444,116 @@ async function syncPending(){
   refreshShows();
 }
 
-// Update Ongoing sheet after logging an episode.
-// Finds matching row by title + season (case-insensitive). If found, bumps
-// currentEp to max(existing, just-logged). If currentEp >= totalEp and totalEp
-// is known, marks completed=TRUE with today's date. If no match, creates new row.
+// Update Ongoing sheet after logging an entry.
+// For TV shows: finds matching row by title + season, bumps currentEp,
+// marks completed if currentEp >= totalEp.
+// For movies: creates/updates an Ongoing row marked completed=TRUE immediately.
 async function updateOngoing(url, entry, existingOngoing){
-  const titleLc = String(entry.title || '').trim().toLowerCase();
-  const season  = String(entry.season || '');
-  const loggedEp = parseInt(entry.episode || '0', 10) || 0;
-  // For range entries (Ep 4–10), episodeTo is the highest ep watched
+  const titleLc  = String(entry.title || '').trim().toLowerCase();
+  const season   = String(entry.season || '');
+  const isMovie  = entry.type === 'Movie';
+
+  if(isMovie){
+    // Movies are always immediately completed
+    const match = existingOngoing.find(o =>
+      String(o.title || '').trim().toLowerCase() === titleLc &&
+      String(o.completedType || '') === 'Movie'
+    );
+    if(match){
+      // Already exists — skip if already completed
+      if(String(match.completed).toUpperCase() === 'TRUE') return;
+      const updated = { ...match, completed: 'TRUE', completedDate: entry.date || '' };
+      const idx = existingOngoing.indexOf(match);
+      if(idx >= 0) existingOngoing[idx] = updated;
+      await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ op: 'upsert', sheet: 'ONGOING', data: updated }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    } else {
+      // Create new Ongoing row for this movie
+      const newRow = {
+        id:            Date.now() + Math.floor(Math.random() * 1000),
+        title:         entry.title,
+        completedType: 'Movie',
+        platform:      entry.platform || '',
+        season:        '',
+        currentEp:     '',
+        totalEp:       '',
+        airingStatus:  '',
+        completed:     'TRUE',
+        completedDate: entry.date || '',
+        givenUp:       'FALSE',
+        givenUpDate:   '',
+        givenUpReason: '',
+        score:         '',
+        review:        '',
+        notes:         entry.notes || '',
+        posterUrl:     ''
+      };
+      existingOngoing.push(newRow);
+      await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ op: 'upsert', sheet: 'ONGOING', data: newRow }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    }
+    return;
+  }
+
+  // TV Show logic
+  const loggedEp   = parseInt(entry.episode  || '0', 10) || 0;
   const loggedEpTo = parseInt(entry.episodeTo || '0', 10) || 0;
   const maxLoggedEp = loggedEpTo > loggedEp ? loggedEpTo : loggedEp;
-  if(maxLoggedEp === 0) return; // nothing to update
+  if(maxLoggedEp === 0) return;
 
-  // Find matching ongoing row
   const match = existingOngoing.find(o =>
     String(o.title || '').trim().toLowerCase() === titleLc &&
     String(o.season || '') === season
   );
 
   if(match){
-    // Update existing row
-    const currentEpNow = parseInt(match.currentEp || '0', 10) || 0;
-    const newCurrentEp = Math.max(currentEpNow, maxLoggedEp);
-    const totalEpVal = parseInt(match.totalEp || '0', 10) || 0;
+    const currentEpNow  = parseInt(match.currentEp || '0', 10) || 0;
+    const newCurrentEp  = Math.max(currentEpNow, maxLoggedEp);
+    const totalEpVal    = parseInt(match.totalEp || '0', 10) || 0;
     const shouldComplete = totalEpVal > 0 && newCurrentEp >= totalEpVal;
-
-    // Only push if something actually changed
-    const completedNow = String(match.completed || '').toUpperCase() === 'TRUE';
+    const completedNow  = String(match.completed || '').toUpperCase() === 'TRUE';
     if(newCurrentEp === currentEpNow && completedNow === shouldComplete) return;
 
     const updated = {
       ...match,
-      currentEp: String(newCurrentEp),
-      completed: shouldComplete ? 'TRUE' : (match.completed || 'FALSE'),
+      currentEp:     String(newCurrentEp),
+      completed:     shouldComplete ? 'TRUE' : (match.completed || 'FALSE'),
       completedDate: shouldComplete && !completedNow ? entry.date : (match.completedDate || '')
     };
-    // Also update local cached copy so next entry in this sync sees the new state
     const idx = existingOngoing.indexOf(match);
     if(idx >= 0) existingOngoing[idx] = updated;
-
     await fetch(url, {
       method: 'POST',
       body: JSON.stringify({ op: 'upsert', sheet: 'ONGOING', data: updated }),
       headers: { 'Content-Type': 'text/plain' }
     });
   } else {
-    // No matching row — create a new Ongoing record
-    const totalEpVal = parseInt(entry.totalEp || '0', 10) || 0;
+    const totalEpVal    = parseInt(entry.totalEp || '0', 10) || 0;
     const shouldComplete = totalEpVal > 0 && maxLoggedEp >= totalEpVal;
     const newRow = {
-      id:             Date.now() + Math.floor(Math.random() * 1000),
-      title:          entry.title,
-      completedType:  'TV Show',
-      platform:       entry.platform || '',
-      season:         season,
-      currentEp:      String(maxLoggedEp),
-      totalEp:        entry.totalEp || '',
-      airingStatus:   '',
-      completed:      shouldComplete ? 'TRUE' : 'FALSE',
-      completedDate:  shouldComplete ? entry.date : '',
-      givenUp:        'FALSE',
-      givenUpDate:    '',
-      givenUpReason:  '',
-      score:          '',
-      review:         '',
-      notes:          '',
-      posterUrl:      ''
+      id:            Date.now() + Math.floor(Math.random() * 1000),
+      title:         entry.title,
+      completedType: 'TV Show',
+      platform:      entry.platform || '',
+      season:        season,
+      currentEp:     String(maxLoggedEp),
+      totalEp:       entry.totalEp || '',
+      airingStatus:  '',
+      completed:     shouldComplete ? 'TRUE' : 'FALSE',
+      completedDate: shouldComplete ? entry.date : '',
+      givenUp:       'FALSE',
+      givenUpDate:   '',
+      givenUpReason: '',
+      score:         '',
+      review:        '',
+      notes:         '',
+      posterUrl:     ''
     };
     existingOngoing.push(newRow);
     await fetch(url, {
@@ -595,7 +636,7 @@ function saveSettings(){
 }
 
 function showDebug(){
-  const out = ['=== Show Log v3.1 ===', '=== Phone localStorage ==='];
+  const out = ['=== Show Log v3.2 ===', '=== Phone localStorage ==='];
   ['sc:phoneEntries','sc:phoneWatching','sc:pendingSync','sc:scriptUrl'].forEach(k => {
     const v = localStorage.getItem(k);
     if(!v){ out.push(k + ': (empty)'); return; }
