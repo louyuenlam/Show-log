@@ -79,7 +79,7 @@ select.input{background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns
   <div class="head">
     <div>
       <div class="brand">Show<em>Log</em></div>
-      <div class="sub">Quick log on the go · v3.0</div>
+      <div class="sub">Quick log on the go · v3.1</div>
     </div>
     <div class="sync-pill"><span class="dot" id="dot"></span><span id="sync-label">Synced</span></div>
   </div>
@@ -319,7 +319,7 @@ function saveEntry(){
   const isRange = type === 'TV Show' && epFrom && epTo && parseInt(epTo) > parseInt(epFrom);
   const isMovie = type === 'Movie';
 
-  function buildEntry(epValue, useId){
+  function buildEntry(epValue, epToValue, useId){
     return {
       id:        useId,
       title:     title,
@@ -327,7 +327,7 @@ function saveEntry(){
       platform:  String(platform || ''),
       season:    isMovie ? '' : String(season || ''),
       episode:   isMovie ? '' : String(epValue || ''),
-      episodeTo: '',
+      episodeTo: isMovie ? '' : String(epToValue || ''),
       totalEp:   isMovie ? '' : String(totalEp || ''),
       date:      date,
       notes:     String(notes || ''),
@@ -338,11 +338,10 @@ function saveEntry(){
   const newEntries = [];
   const ts = Date.now();
   if(isRange){
-    for(let ep = parseInt(epFrom); ep <= parseInt(epTo); ep++){
-      newEntries.push(buildEntry(String(ep), ts + ep));
-    }
+    // Save one single entry with episode=from, episodeTo=to (no splitting)
+    newEntries.push(buildEntry(epFrom, epTo, ts));
   } else {
-    newEntries.push(buildEntry(epFrom, ts));
+    newEntries.push(buildEntry(epFrom, '', ts));
   }
 
   load();
@@ -455,10 +454,9 @@ async function updateOngoing(url, entry, existingOngoing){
   const titleLc = String(entry.title || '').trim().toLowerCase();
   const season  = String(entry.season || '');
   const loggedEp = parseInt(entry.episode || '0', 10) || 0;
-  // For binge entries we get one Entry per episode, so loggedEp is enough.
-  // But also handle the (uncommon) case where episodeTo is set on a single Entry.
+  // For range entries (Ep 4–10), episodeTo is the highest ep watched
   const loggedEpTo = parseInt(entry.episodeTo || '0', 10) || 0;
-  const maxLoggedEp = Math.max(loggedEp, loggedEpTo);
+  const maxLoggedEp = loggedEpTo > loggedEp ? loggedEpTo : loggedEp;
   if(maxLoggedEp === 0) return; // nothing to update
 
   // Find matching ongoing row
@@ -597,7 +595,7 @@ function saveSettings(){
 }
 
 function showDebug(){
-  const out = ['=== Show Log v3.0 ===', '=== Phone localStorage ==='];
+  const out = ['=== Show Log v3.1 ===', '=== Phone localStorage ==='];
   ['sc:phoneEntries','sc:phoneWatching','sc:pendingSync','sc:scriptUrl'].forEach(k => {
     const v = localStorage.getItem(k);
     if(!v){ out.push(k + ': (empty)'); return; }
