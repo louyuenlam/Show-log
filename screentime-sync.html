@@ -472,6 +472,20 @@ async function pushDelete(sheet, id) {
 }
 
 // ── Normalise sheet data ──────────────────────────────────────────────────────
+// Convert any date value (string, Date object, Sheets timestamp) to YYYY-MM-DD.
+// Returns '' if the value is empty or unparseable.
+function toYMD(v) {
+  if(!v && v !== 0) return '';
+  const s = String(v);
+  if(!s || s === 'null' || s === 'undefined') return '';
+  // Already YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  // Try parsing as a Date (handles ISO strings, Sheets date objects, etc.)
+  const d = new Date(v);
+  if(isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
 function normaliseEntries(rows) {
   return rows.map(e => ({
     id:        Number(e.id) || Date.now(),
@@ -482,7 +496,7 @@ function normaliseEntries(rows) {
     episode:   String(e.episode  || ''),
     episodeTo: String(e.episodeTo|| ''),
     totalEp:   String(e.totalEp  || ''),
-    date:      String(e.date     || ''),
+    date:      toYMD(e.date) || String(e.date || ''),
     notes:     String(e.notes    || ''),
     rating:    e.rating !== undefined ? e.rating : ''
   })).filter(e => e.title);
@@ -499,9 +513,9 @@ function normaliseOngoing(rows) {
     totalEp:       String(o.totalEp       || ''),
     airingStatus:  String(o.airingStatus  || ''),
     completed:     o.completed === true || String(o.completed).toLowerCase() === 'true',
-    completedDate: String(o.completedDate || ''),
+    completedDate: toYMD(o.completedDate),
     givenUp:       o.givenUp === true || String(o.givenUp).toLowerCase() === 'true',
-    givenUpDate:   String(o.givenUpDate   || ''),
+    givenUpDate:   toYMD(o.givenUpDate),
     givenUpReason: String(o.givenUpReason || ''),
     score:         o.score !== '' && o.score !== null && o.score !== undefined ? Number(o.score) : null,
     review:        String(o.review        || ''),
