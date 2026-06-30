@@ -758,7 +758,7 @@ function updateStats() {
 function switchTab(idx, btn) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  for(let i=0;i<6;i++) {
+  for(let i=0;i<7;i++) {
     const el = document.getElementById('tab-'+i);
     if(el) el.classList.toggle('hidden', i!==idx);
   }
