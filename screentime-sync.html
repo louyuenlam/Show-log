@@ -44,6 +44,8 @@ button{cursor:pointer;}
 /* Forms */
 .input-field{width:100%;background:var(--bgInput);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border .2s;}
 .input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentBg);}
+.modal-input{width:100%;background:var(--bgInput,#fdf6ed);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;font-family:inherit;box-sizing:border-box;display:block;margin-top:4px;}
+.modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentBg,#fbe9df);}
 .label{font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--textMid);text-transform:uppercase;margin-bottom:5px;display:block;}
 .hint{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);margin-top:3px;}
 .checkbox-row{display:flex;align-items:center;gap:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);}
@@ -135,7 +137,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.1 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.2 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -161,6 +163,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <button class="tab-btn" onclick="switchTab(3,this)">💔 Given Up</button>
     <button class="tab-btn" onclick="switchTab(4,this)">⭐ Wishlist</button>
     <button class="tab-btn" onclick="switchTab(5,this)">📊 Stats</button>
+    <button class="tab-btn" onclick="switchTab(6,this)">🔮 Upcoming</button>
   </div>
 </div>
 
@@ -184,6 +187,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div id="tab-4-results"></div>
   </div>
   <div id="tab-5" class="hidden"></div>
+  <div id="tab-6" class="hidden"></div>
 </div>
 
 <!-- MODAL: Log Entry -->
@@ -253,6 +257,26 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
           <div><label class="label">Current Episode</label><input class="input-field" id="of-currentep" type="number" min="0" placeholder="e.g. 4"/></div>
           <div></div>
         </div>
+        <div style="background:#f9f1e3;border-radius:8px;padding:10px;margin-top:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📡 Weekly Airing Schedule (optional)</div>
+          <div class="grid-2">
+            <div><label class="label">Airs every</label>
+              <select class="input-field" id="of-airday">
+                <option value="">— None —</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+            <div><label class="label">First episode date</label>
+              <input class="input-field" id="of-firstairdate" type="date"/>
+            </div>
+          </div>
+        </div>
       </div>
       <label class="checkbox-row"><input type="checkbox" id="of-completed" onchange="onCompletedChange()"/> Mark as completed</label>
       <div id="of-completed-date-row" class="hidden">
@@ -279,6 +303,13 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
         <button class="btn-primary" onclick="saveOngoing()">Save</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Upcoming -->
+<div id="upcoming-modal" style="display:none;position:fixed;inset:0;background:rgba(44,26,14,.45);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--bg,#FDF9F0);border-radius:18px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.18);">
+    <div id="upcoming-modal-body"></div>
   </div>
 </div>
 
@@ -373,6 +404,7 @@ const SHEETS_LAST_SYNC = 'sc:lastSheetsSyncTime';
 const CACHE_ENTRIES    = 'sc:entries';
 const CACHE_ONGOING    = 'sc:ongoing';
 const CACHE_WISHLIST   = 'sc:wishlist';
+const CACHE_UPCOMING   = 'sc:upcoming';
 const CACHE_MODIFIED   = 'sc:lastModified';
 
 let _sheetsUrl = localStorage.getItem(SHEETS_URL_KEY) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
@@ -414,12 +446,14 @@ function loadCache() {
   try { entries  = JSON.parse(localStorage.getItem(CACHE_ENTRIES)  || '[]'); } catch { entries  = []; }
   try { ongoing  = JSON.parse(localStorage.getItem(CACHE_ONGOING)  || '[]'); } catch { ongoing  = []; }
   try { wishlist = JSON.parse(localStorage.getItem(CACHE_WISHLIST) || '[]'); } catch { wishlist = []; }
+  try { upcoming = JSON.parse(localStorage.getItem(CACHE_UPCOMING) || '[]'); } catch { upcoming = []; }
 }
 
 function saveCache() {
   localStorage.setItem(CACHE_ENTRIES,  JSON.stringify(entries));
   localStorage.setItem(CACHE_ONGOING,  JSON.stringify(ongoing));
   localStorage.setItem(CACHE_WISHLIST, JSON.stringify(wishlist));
+  localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
 }
 
 // ── Full pull from Sheets ─────────────────────────────────────────────────────
@@ -434,6 +468,7 @@ async function pullFromSheets(silent=false) {
     entries  = normaliseEntries(data.entries  || []);
     ongoing  = normaliseOngoing(data.ongoing   || []);
     wishlist = normaliseWishlist(data.wishlist || []);
+    upcoming = normaliseUpcoming(data.upcoming || []);
     saveCache();
     localStorage.setItem(CACHE_MODIFIED,   data.lastModified || '');
     localStorage.setItem(SHEETS_LAST_SYNC, new Date().toISOString());
@@ -523,7 +558,9 @@ function normaliseOngoing(rows) {
     score:         o.score !== '' && o.score !== null && o.score !== undefined ? Number(o.score) : null,
     review:        String(o.review        || ''),
     notes:         String(o.notes         || ''),
-    posterUrl:     String(o.posterUrl     || '')
+    posterUrl:     String(o.posterUrl     || ''),
+    airDay:        o.airDay !== undefined && o.airDay !== '' ? Number(o.airDay) : '',
+    firstAirDate:  toYMD(o.firstAirDate) || ''
   })).filter(o => o.title);
 }
 
@@ -536,6 +573,22 @@ function normaliseWishlist(rows) {
     notes:    String(w.notes    || ''),
     added:    String(w.added    || '')
   })).filter(w => w.title);
+}
+
+function normaliseUpcoming(rows) {
+  return rows.map(u => ({
+    id:           Number(u.id) || Date.now(),
+    title:        String(u.title       || ''),
+    type:         String(u.type        || 'TV Show'),
+    platform:     String(u.platform    || ''),
+    season:       String(u.season      || ''),
+    releaseDate:  toYMD(u.releaseDate) || '',
+    releaseYear:  String(u.releaseYear || ''),
+    airDay:       u.airDay !== undefined && u.airDay !== '' ? Number(u.airDay) : '',
+    firstAirDate: toYMD(u.firstAirDate) || '',
+    totalEp:      String(u.totalEp     || ''),
+    notes:        String(u.notes       || '')
+  })).filter(u => u.title);
 }
 
 // ── Sync status UI ────────────────────────────────────────────────────────────
@@ -611,6 +664,7 @@ function save(key, val) { localStorage.setItem('sc:'+key, JSON.stringify(val)); 
 let entries = load('entries', []);
 let ongoing = load('ongoing', []);
 let wishlist = load('wishlist', []);
+let upcoming = load('upcoming', []);
 let currentTab = 0;
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
@@ -724,6 +778,7 @@ function renderTab(idx) {
   else if(idx===3) renderGivenUp();
   else if(idx===4) renderWishlist();
   else if(idx===5) renderStats();
+  else if(idx===6) renderUpcoming();
 }
 function rerender() { updateStats(); renderTab(currentTab); }
 
@@ -1573,6 +1628,8 @@ function openOngoingModal(editId) {
     document.getElementById('of-completeddate').value = o.completedDate||'';
     document.getElementById('of-notes').value = o.notes||'';
     document.getElementById('of-review').value = o.review||'';
+    document.getElementById('of-airday').value = o.airDay !== undefined && o.airDay !== '' ? String(o.airDay) : '';
+    document.getElementById('of-firstairdate').value = o.firstAirDate||'';
     setOngoingScore(o.score||0);
     onCompletedChange();
     document.getElementById('of-review-section').classList.toggle('hidden', !o.completed);
@@ -1591,6 +1648,8 @@ function openOngoingModal(editId) {
     document.getElementById('of-completeddate').value='';
     document.getElementById('of-notes').value='';
     document.getElementById('of-review').value='';
+    document.getElementById('of-airday').value='';
+    document.getElementById('of-firstairdate').value='';
     setOngoingScore(0);
     onCompletedChange();
   }
@@ -1647,7 +1706,9 @@ function saveOngoing() {
     notes: document.getElementById('of-notes').value,
     score: ongoingScore||null,
     review: document.getElementById('of-review').value,
-    givenUp: false, givenUpDate: ''
+    givenUp: false, givenUpDate: '',
+    airDay: document.getElementById('of-airday').value !== '' ? Number(document.getElementById('of-airday').value) : '',
+    firstAirDate: document.getElementById('of-firstairdate').value || ''
   };
 
   if(editId) {
@@ -2617,6 +2678,382 @@ async function initSync() {
 window.addEventListener('load', () => {
   setTimeout(initSync, 500);
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// UPCOMING TAB
+// ═══════════════════════════════════════════════════════════════════════
+
+const DAY_NAMES_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_SHORT_UP   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function todayYMD() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// Given a firstAirDate (YYYY-MM-DD) and airDay (0-6), compute the date of episodeNum (1-based)
+function episodeDate(firstAirDate, airDay, episodeNum) {
+  if(!firstAirDate || airDay === '') return null;
+  const base = new Date(firstAirDate + 'T12:00:00');
+  // Snap base to the correct airDay
+  const baseDow = base.getDay();
+  const diff = ((airDay - baseDow) + 7) % 7;
+  const ep1 = new Date(base);
+  ep1.setDate(ep1.getDate() + diff);
+  const target = new Date(ep1);
+  target.setDate(ep1.getDate() + (episodeNum - 1) * 7);
+  return target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
+}
+
+function fmtUpcomingDate(ymd) {
+  if(!ymd) return '';
+  const d = new Date(ymd + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function daysUntil(ymd) {
+  const today = new Date(todayYMD() + 'T12:00:00');
+  const target = new Date(ymd + 'T12:00:00');
+  return Math.round((target - today) / 86400000);
+}
+
+// ── Modal state ───────────────────────────────────────────────────────────────
+let _upcomingEditId = null;
+let _upcomingCalMonth = new Date().getMonth();
+let _upcomingCalYear  = new Date().getFullYear();
+
+// ── Save / Delete ─────────────────────────────────────────────────────────────
+function saveUpcomingEntry() {
+  const title = document.getElementById('up-title').value.trim();
+  if(!title) { alert('Please enter a title'); return; }
+
+  const type        = document.getElementById('up-type').value;
+  const platform    = document.getElementById('up-platform').value;
+  const season      = document.getElementById('up-season').value.trim();
+  const releaseDate = document.getElementById('up-releasedate').value;
+  const releaseYear = document.getElementById('up-releaseyear').value.trim();
+  const airDayVal   = document.getElementById('up-airday').value;
+  const firstAirDate= document.getElementById('up-firstairdate').value;
+  const totalEp     = document.getElementById('up-totalep').value.trim();
+  const notes       = document.getElementById('up-notes').value.trim();
+
+  const entry = {
+    id:           _upcomingEditId || (Date.now() + Math.floor(Math.random()*1000)),
+    title, type, platform, season,
+    releaseDate:  releaseDate || '',
+    releaseYear:  releaseDate ? '' : (releaseYear || ''),
+    airDay:       airDayVal !== '' ? Number(airDayVal) : '',
+    firstAirDate: firstAirDate || '',
+    totalEp:      totalEp || '',
+    notes
+  };
+
+  if(_upcomingEditId) {
+    upcoming = upcoming.map(u => String(u.id) === String(_upcomingEditId) ? entry : u);
+  } else {
+    upcoming.push(entry);
+  }
+  localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
+  pushUpsert('UPCOMING', entry);
+  closeUpcomingModal();
+  renderUpcoming();
+}
+
+function deleteUpcomingEntry(id) {
+  if(!confirm('Remove this upcoming entry?')) return;
+  upcoming = upcoming.filter(u => String(u.id) !== String(id));
+  localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
+  pushDelete('UPCOMING', id);
+  renderUpcoming();
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openUpcomingModal(id) {
+  _upcomingEditId = id || null;
+  const u = id ? upcoming.find(x => String(x.id) === String(id)) : null;
+
+  const PLATFORMS = ['','Netflix','Disney+','Apple TV+','Prime Video','HBO Max','Hulu','Peacock','BBC','ITVX','Gimy','Cinema','Other'];
+  const platOpts = PLATFORMS.map(p => `<option value="${p}"${u&&u.platform===p?' selected':''}>${p||'— Select —'}</option>`).join('');
+  const dayOpts  = ['','0','1','2','3','4','5','6'].map((d,i) =>
+    `<option value="${d}"${u&&String(u.airDay)===d?' selected':''}>${i===0?'— None —':DAY_NAMES_FULL[Number(d)]}</option>`).join('');
+
+  document.getElementById('upcoming-modal-body').innerHTML = `
+    <h2 style="font-family:'Lora',serif;font-size:19px;color:var(--accent);margin:0 0 16px;">${id?'Edit':'Add'} Upcoming</h2>
+    <label style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">Title</label>
+    <input id="up-title" class="modal-input" value="${esc(u?.title||'')}" placeholder="Show or movie title" style="margin-bottom:10px;"/>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">Type</label>
+        <select id="up-type" class="modal-input" onchange="upTypeChange()">
+          <option value="TV Show"${!u||u.type==='TV Show'?' selected':''}>TV Show</option>
+          <option value="Movie"${u?.type==='Movie'?' selected':''}>Movie</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">Platform</label>
+        <select id="up-platform" class="modal-input">${platOpts}</select>
+      </div>
+    </div>
+
+    <div id="up-tv-fields">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">Season</label>
+          <input id="up-season" class="modal-input" type="number" min="1" value="${u?.season||''}" placeholder="e.g. 2"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">Total Episodes</label>
+          <input id="up-totalep" class="modal-input" type="number" min="1" value="${u?.totalEp||''}" placeholder="e.g. 10"/>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bgAlt,#f9f1e3);border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
+      <label style="font-size:11px;color:var(--textDim);">Confirmed release date (leave empty if TBA)</label>
+      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||''}" style="margin-bottom:8px;"/>
+      <label style="font-size:11px;color:var(--textDim);">Year only (if date unknown)</label>
+      <input id="up-releaseyear" class="modal-input" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/>
+    </div>
+
+    <div id="up-airing-fields" style="background:var(--bgAlt,#f9f1e3);border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📡 Airing Schedule (optional)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--textDim);">Airs every</label>
+          <select id="up-airday" class="modal-input">${dayOpts}</select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--textDim);">First episode date</label>
+          <input id="up-firstairdate" class="modal-input" type="date" value="${u?.firstAirDate||''}"/>
+        </div>
+      </div>
+    </div>
+
+    <label style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">Notes</label>
+    <textarea id="up-notes" class="modal-input" rows="2" style="resize:vertical;">${esc(u?.notes||'')}</textarea>
+
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn-primary" onclick="saveUpcomingEntry()" style="flex:1;">Save</button>
+      <button onclick="closeUpcomingModal()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);font-family:inherit;cursor:pointer;">Cancel</button>
+      ${id?`<button onclick="deleteUpcomingEntry('${id}')" style="padding:10px 14px;border:none;border-radius:8px;background:#fee;color:#c44;font-family:inherit;cursor:pointer;">Delete</button>`:''}
+    </div>
+  `;
+  upTypeChange();
+  document.getElementById('upcoming-modal').style.display = 'flex';
+}
+
+function upTypeChange() {
+  const isMovie = document.getElementById('up-type')?.value === 'Movie';
+  const tvFields = document.getElementById('up-tv-fields');
+  const airFields = document.getElementById('up-airing-fields');
+  if(tvFields) tvFields.style.display = isMovie ? 'none' : 'block';
+  if(airFields) airFields.style.display = isMovie ? 'none' : 'block';
+}
+
+function closeUpcomingModal() {
+  document.getElementById('upcoming-modal').style.display = 'none';
+}
+
+// ── Airing calendar ───────────────────────────────────────────────────────────
+function renderAiringCalendar() {
+  const today = todayYMD();
+  // Collect all airing shows from upcoming with a schedule AND from ongoing (watching)
+  const airingShows = [
+    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate && u.totalEp),
+    ...ongoing.filter(o =>
+      !o.completed && !o.givenUp &&
+      o.completedType !== 'Movie' &&
+      o.airDay !== undefined && o.airDay !== '' &&
+      o.firstAirDate && o.totalEp
+    ).map(o => ({
+      title: o.title,
+      season: o.season,
+      airDay: o.airDay,
+      firstAirDate: o.firstAirDate,
+      totalEp: o.totalEp,
+      currentEp: o.currentEp || 0,
+      platform: o.platform,
+      _fromWatching: true
+    }))
+  ];
+
+  // Build a map of date → shows airing that day
+  const calMap = {};
+  airingShows.forEach(show => {
+    const total = parseInt(show.totalEp) || 0;
+    const startEp = parseInt(show.currentEp || 0) + 1;
+    for(let ep = startEp; ep <= total; ep++) {
+      const d = episodeDate(show.firstAirDate, show.airDay, ep);
+      if(!d) continue;
+      if(!calMap[d]) calMap[d] = [];
+      calMap[d].push({ title: show.title, season: show.season, ep, platform: show.platform });
+    }
+  });
+
+  // Render month calendar
+  const year = _upcomingCalYear, month = _upcomingCalMonth;
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthName = MONTH_NAMES[month] + ' ' + year;
+
+  let html = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <button onclick="_upcomingCalMonth--;if(_upcomingCalMonth<0){_upcomingCalMonth=11;_upcomingCalYear--;}renderUpcoming();" style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;">‹</button>
+      <div style="flex:1;text-align:center;font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);">${monthName}</div>
+      <button onclick="_upcomingCalMonth++;if(_upcomingCalMonth>11){_upcomingCalMonth=0;_upcomingCalYear++;}renderUpcoming();" style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;">›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
+      ${DAY_SHORT_UP.map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:var(--textDim);padding:4px 0;">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+  `;
+
+  // Empty cells before first day
+  for(let i = 0; i < firstDay; i++) html += `<div></div>`;
+
+  for(let d = 1; d <= daysInMonth; d++) {
+    const ymd = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const events = calMap[ymd] || [];
+    const isToday = ymd === today;
+    const isPast  = ymd < today;
+    html += `
+      <div style="min-height:60px;border-radius:6px;padding:4px;border:1px solid ${isToday?'var(--accent)':' var(--border)'};background:${isToday?'var(--accentPale,#fbe9df)':isPast?'#fafafa':'#fff'};">
+        <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--textDim)':'var(--text)'};margin-bottom:2px;">${d}</div>
+        ${events.map(ev=>`<div style="font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep}">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`).join('')}
+      </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function renderUpcoming() {
+  const el = document.getElementById('tab-6');
+  if(!el) return;
+  const today = todayYMD();
+
+  // ── Section 1: Coming Soon ────────────────────────────────────────────────
+  const confirmed = upcoming
+    .filter(u => u.releaseDate)
+    .sort((a,b) => a.releaseDate.localeCompare(b.releaseDate));
+
+  const tba = upcoming
+    .filter(u => !u.releaseDate)
+    .sort((a,b) => (a.releaseYear||'9999').localeCompare(b.releaseYear||'9999') || a.title.localeCompare(b.title));
+
+  function upcomingCard(u) {
+    const hasDate   = !!u.releaseDate;
+    const released  = hasDate && u.releaseDate <= today;
+    const days      = hasDate ? daysUntil(u.releaseDate) : null;
+    const daysLabel = days === null ? '' : days === 0 ? '🎉 Today!' : days < 0 ? `Released ${Math.abs(days)}d ago` : `in ${days} day${days===1?'':'s'}`;
+    const badge     = released
+      ? `<span style="background:#e8f5e8;color:#5a9e57;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">Released</span>`
+      : hasDate
+        ? `<span style="background:var(--accentPale,#fbe9df);color:var(--accent);padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">${daysLabel}</span>`
+        : u.releaseYear
+          ? `<span style="background:#f0f0f0;color:var(--textDim);padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">TBA ${u.releaseYear}</span>`
+          : `<span style="background:#f0f0f0;color:var(--textDim);padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">TBA</span>`;
+    const sub = [u.platform, u.type==='TV Show'&&u.season?'S'+u.season:'', hasDate?fmtUpcomingDate(u.releaseDate):''].filter(Boolean).join(' · ');
+    const hasSchedule = u.airDay !== '' && u.firstAirDate && u.totalEp;
+    const airInfo = hasSchedule ? `<div style="font-size:11px;color:var(--textDim);margin-top:3px;">📡 Airs every ${DAY_NAMES_FULL[u.airDay]} · ${u.totalEp} eps</div>` : '';
+
+    return `
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Lora',serif;font-size:15px;font-weight:700;color:var(--text);">${esc(u.title)}</div>
+          <div style="font-size:12px;color:var(--textDim);margin-top:2px;">${esc(sub)}</div>
+          ${airInfo}
+          ${u.notes?`<div style="font-size:11px;color:var(--textDim);margin-top:4px;font-style:italic;">${esc(u.notes)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+          ${badge}
+          <button onclick="openUpcomingModal('${u.id}')" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;">Edit</button>
+        </div>
+      </div>`;
+  }
+
+  // ── Section 2: Currently Airing ───────────────────────────────────────────
+  // Merge upcoming with airing schedule + ongoing shows with airing schedule
+  const airingUpcoming = upcoming.filter(u => u.airDay !== '' && u.firstAirDate && u.totalEp);
+  const airingOngoing  = ongoing.filter(o =>
+    !o.completed && !o.givenUp &&
+    o.completedType !== 'Movie' &&
+    o.airDay !== undefined && o.airDay !== '' &&
+    o.firstAirDate && o.totalEp
+  );
+
+  function airingScheduleHtml(title, season, platform, airDay, firstAirDate, totalEp, currentEp) {
+    const total   = parseInt(totalEp) || 0;
+    const startEp = Math.max(1, parseInt(currentEp||0) + 1);
+    let rows = '';
+    for(let ep = startEp; ep <= total; ep++) {
+      const d = episodeDate(firstAirDate, airDay, ep);
+      if(!d) continue;
+      const days    = daysUntil(d);
+      const isPast  = d < today;
+      const isToday = d === today;
+      rows += `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:12px;color:${isPast?'var(--textDim)':isToday?'var(--accent)':'var(--text)'};font-weight:${isToday?'700':'400'};">
+            Ep ${ep}
+          </div>
+          <div style="font-size:12px;color:${isPast?'var(--textDim)':isToday?'var(--accent)':'var(--text)'};">
+            ${fmtUpcomingDate(d)}
+          </div>
+          <div style="font-size:11px;color:${isPast?'var(--textDim)':'#5a9e57'};font-weight:600;min-width:80px;text-align:right;">
+            ${isPast?'Aired':isToday?'🎉 Today':'in '+days+'d'}
+          </div>
+        </div>`;
+    }
+    return `
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div>
+            <div style="font-family:'Lora',serif;font-size:15px;font-weight:700;color:var(--text);">${esc(title)}${season?' S'+esc(season):''}</div>
+            <div style="font-size:11px;color:var(--textDim);">${esc(platform||'')} · Airs every ${DAY_NAMES_FULL[airDay]}</div>
+          </div>
+          <div style="font-size:11px;color:var(--textDim);">${total} eps total</div>
+        </div>
+        <div>${rows||'<div style="font-size:12px;color:var(--textDim);">No upcoming episodes.</div>'}</div>
+      </div>`;
+  }
+
+  const airingHtml = [
+    ...airingOngoing.map(o => airingScheduleHtml(o.title, o.season, o.platform, Number(o.airDay), o.firstAirDate, o.totalEp, o.currentEp || 0)),
+    ...airingUpcoming.map(u => airingScheduleHtml(u.title, u.season, u.platform, Number(u.airDay), u.firstAirDate, u.totalEp, 0))
+  ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Upcoming</h2>
+        <p style="font-size:12px;color:var(--textDim);margin-top:2px;">Track future releases and airing schedules.</p>
+      </div>
+      <button class="btn-primary" onclick="openUpcomingModal(null)">+ Add Upcoming</button>
+    </div>
+
+    ${confirmed.length||tba.length ? `
+      <h3 style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin:0 0 10px;">🗓️ Coming Soon</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
+        ${confirmed.map(upcomingCard).join('')}
+        ${tba.map(upcomingCard).join('')}
+      </div>
+    ` : `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;color:var(--textDim);font-size:13px;margin-bottom:24px;">No upcoming entries yet. Click <strong>+ Add Upcoming</strong> to get started.</div>`}
+
+    <h3 style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin:0 0 10px;">📡 Currently Airing</h3>
+    <div style="margin-bottom:24px;">${airingHtml}</div>
+
+    <h3 style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin:0 0 10px;">📅 Airing Calendar</h3>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
+      ${renderAiringCalendar()}
+    </div>
+  `;
+}
+
 
 </script>
 </body>
