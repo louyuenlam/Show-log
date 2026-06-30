@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Screentime">
 <meta name="theme-color" content="#FDF9F0">
 <link rel="apple-touch-icon" href="./icon.png">
+<link rel="icon" type="image/png" href="./icon.png">
 <title>Screentime</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1237,7 +1238,7 @@ if(_sheetsUrl) setTimeout(()=>doSync(), 600);
 
 // Service Worker
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  navigator.serviceWorker.register('./sw-mobile.js').catch(()=>{});
 }
 </script>
 </body>
