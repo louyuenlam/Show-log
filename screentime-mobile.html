@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Screentime">
+<meta name="theme-color" content="#FDF9F0">
+<link rel="apple-touch-icon" href="./icon.png">
+<title>Screentime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FDF9F0;--cream-dark:#F5EFE0;--accent:#d4603a;--accent-dark:#b54e2e;
+  --accent-pale:#fbe9df;--accent-light:#e8a489;--ink:#2c1a0e;--ink-soft:#5a4030;
+  --ink-dim:#8a7060;--border:#e8d9c0;--warn:#c0792e;--green:#5a9e57;
+  --safe-top:env(safe-area-inset-top);--safe-bot:env(safe-area-inset-bottom);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+html,body{height:100%;background:var(--cream);color:var(--ink);font-family:'Manrope',sans-serif;font-size:14px;overflow:hidden;}
+input,select,textarea{font-family:inherit;font-size:14px;-webkit-user-select:auto;user-select:auto;}
+button{font-family:inherit;cursor:pointer;}
+
+/* ── Layout ── */
+#app{display:flex;flex-direction:column;height:100%;background:var(--cream);}
+
+/* ── Header ── */
+#header{
+  padding:calc(var(--safe-top) + 12px) 16px 12px;
+  background:var(--cream);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+  position:sticky;top:0;z-index:50;
+}
+#header-title{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--ink);flex:1;}
+#header-title em{font-style:italic;font-weight:500;color:var(--accent);}
+#header-sub{font-family:'Fraunces',serif;font-style:italic;font-size:11px;color:var(--ink-dim);}
+.icon-btn{background:none;border:none;padding:6px;border-radius:8px;color:var(--ink-soft);font-size:20px;display:flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;}
+.icon-btn:active{background:var(--cream-dark);}
+#sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+#sync-dot.pending{background:var(--warn);}
+#sync-dot.syncing{background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* ── Drawer ── */
+#drawer-overlay{position:fixed;inset:0;background:rgba(44,26,14,.45);z-index:100;opacity:0;pointer-events:none;transition:opacity .25s;}
+#drawer-overlay.open{opacity:1;pointer-events:all;}
+#drawer{position:fixed;top:0;left:0;bottom:0;width:280px;background:var(--cream);z-index:101;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);padding-top:var(--safe-top);box-shadow:4px 0 24px rgba(0,0,0,.12);}
+#drawer.open{transform:translateX(0);}
+#drawer-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+#drawer-title{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--ink);}
+#drawer-title em{font-style:italic;font-weight:500;color:var(--accent);}
+#drawer-version{font-size:10px;color:var(--ink-dim);margin-top:2px;}
+.drawer-nav{padding:8px 0;}
+.drawer-item{display:flex;align-items:center;gap:12px;padding:13px 20px;font-size:14px;font-weight:500;color:var(--ink-soft);border:none;background:none;width:100%;text-align:left;transition:background .15s;}
+.drawer-item:active,.drawer-item.active{background:var(--accent-pale);color:var(--accent-dark);}
+.drawer-item.active{font-weight:700;}
+.drawer-item .di-icon{font-size:18px;width:24px;text-align:center;}
+.drawer-divider{height:1px;background:var(--border);margin:6px 16px;}
+
+/* ── Content ── */
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--safe-bot) + 16px);}
+.tab-view{display:none;padding:16px;}
+.tab-view.active{display:block;}
+
+/* ── Cards ── */
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.card-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+.card-sub{font-size:12px;color:var(--ink-dim);}
+.card-meta{font-size:11px;color:var(--ink-dim);}
+
+/* ── Section headers ── */
+.section-hd{font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--ink);margin-bottom:12px;}
+.section-hd em{font-style:italic;font-weight:500;color:var(--accent);}
+
+/* ── Pills ── */
+.pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;background:var(--cream-dark);color:var(--ink-soft);border:none;cursor:pointer;}
+.pill.active{background:var(--accent);color:#fff;}
+.pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+
+/* ── Buttons ── */
+.btn{padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;}
+.btn-primary{background:var(--accent-dark);color:#fff;}
+.btn-primary:active{opacity:.85;}
+.btn-secondary{background:#fff;color:var(--accent-dark);border:1px solid var(--accent);}
+.btn-ghost{background:none;color:var(--ink-dim);border:1px solid var(--border);}
+.btn-danger{background:#fee;color:#c44;border:none;}
+.btn-full{width:100%;}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;}
+
+/* ── Form inputs ── */
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:5px;}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--cream);color:var(--ink);outline:none;-webkit-appearance:none;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
+.field select{background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='%238a7060' d='M8 11L3 6h10z'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right 10px center;background-size:14px;padding-right:32px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ── Stars ── */
+.stars-row{display:flex;gap:3px;margin-bottom:6px;}
+.star-btn{background:none;border:none;font-size:22px;color:var(--border);padding:0;line-height:1;}
+.star-btn.on{color:var(--accent);}
+.score-label{font-size:12px;color:var(--accent);font-weight:700;margin-bottom:8px;}
+
+/* ── Modal ── */
+#modal-overlay{position:fixed;inset:0;background:rgba(44,26,14,.5);backdrop-filter:blur(4px);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+#modal-overlay.open{display:flex;}
+#modal-sheet{background:var(--cream);border-radius:20px 20px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:20px 20px calc(20px + var(--safe-bot));-webkit-overflow-scrolling:touch;}
+#modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+#modal-title{font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--accent);margin-bottom:16px;}
+#modal-body{}
+#modal-actions{display:flex;gap:10px;margin-top:16px;}
+
+/* ── Search bar ── */
+.search-wrap{position:relative;margin-bottom:14px;}
+.search-wrap input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--ink);outline:none;}
+.search-wrap::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;}
+
+/* ── Rating badge ── */
+.rating-badge{font-size:12px;font-weight:700;color:var(--accent);}
+.stars-display{color:var(--accent);font-size:13px;letter-spacing:1px;}
+
+/* ── Completed card ── */
+.show-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.show-card-title{font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink);}
+.show-card-meta{font-size:12px;color:var(--ink-dim);margin-top:2px;}
+.show-card-rating{font-size:12px;color:var(--accent);font-weight:600;margin-top:4px;}
+.show-card-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+
+/* ── Type badge ── */
+.type-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--cream-dark);color:var(--ink-soft);}
+.type-badge.tv{background:#e8f0fe;color:#3357d4;}
+.type-badge.movie{background:#e8f5e8;color:#2a7a2a;}
+
+/* ── Progress bar ── */
+.progress-wrap{background:var(--cream-dark);border-radius:999px;height:4px;margin-top:6px;}
+.progress-bar{background:var(--accent);border-radius:999px;height:4px;transition:width .3s;}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:calc(var(--safe-bot) + 20px);left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--cream);padding:10px 18px;border-radius:999px;font-size:13px;z-index:300;transition:transform .3s;box-shadow:0 4px 16px rgba(0,0,0,.15);max-width:85vw;text-align:center;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.err{background:var(--warn);}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:40px 20px;color:var(--ink-dim);}
+.empty-icon{font-size:40px;margin-bottom:8px;}
+.empty-text{font-size:14px;}
+
+/* ── Watch log calendar ── */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-day-hd{text-align:center;font-size:9px;font-weight:700;color:var(--ink-dim);padding:4px 0;}
+.cal-day{min-height:52px;border-radius:8px;padding:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+.cal-day.today{border-color:var(--accent);background:var(--accent-pale);}
+.cal-day.has-entries{cursor:pointer;}
+.cal-day-num{font-size:10px;font-weight:600;color:var(--ink-dim);margin-bottom:2px;}
+.cal-day.today .cal-day-num{color:var(--accent);font-weight:700;}
+.cal-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;margin:1px;}
+.cal-dot.movie{background:var(--green);}
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.cal-nav-title{flex:1;text-align:center;font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--ink);}
+.cal-nav-btn{background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:16px;color:var(--ink-soft);}
+
+/* ── Upcoming ── */
+.upcoming-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;}
+.upcoming-badge.soon{background:var(--accent-pale);color:var(--accent-dark);}
+.upcoming-badge.tba{background:#f0f0f0;color:var(--ink-dim);}
+.upcoming-badge.released{background:#e8f5e8;color:var(--green);}
+
+/* ── Stats ── */
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.stat-num{font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--accent);}
+.stat-label{font-size:12px;color:var(--ink-dim);margin-top:2px;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.bar-label{font-size:12px;color:var(--ink-soft);min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;background:var(--cream-dark);border-radius:999px;height:6px;}
+.bar-fill{background:var(--accent);border-radius:999px;height:6px;}
+.bar-val{font-size:11px;color:var(--ink-dim);min-width:24px;text-align:right;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
+    <div style="flex:1;">
+      <div id="header-title">Screen<em>time</em></div>
+      <div id="header-sub">your watch journal · v1.0</div>
+    </div>
+    <div id="sync-dot" title="Sync status"></div>
+    <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
+    <button class="icon-btn" onclick="openAddModal()" aria-label="Add">＋</button>
+  </div>
+
+  <!-- Drawer overlay -->
+  <div id="drawer-overlay" onclick="closeDrawer()"></div>
+
+  <!-- Side drawer -->
+  <div id="drawer">
+    <div id="drawer-header">
+      <div id="drawer-title">Screen<em>time</em></div>
+      <div id="drawer-version">v1.0 · mobile</div>
+    </div>
+    <div class="drawer-nav">
+      <button class="drawer-item active" onclick="switchTab('watchlog')" data-tab="watchlog"><span class="di-icon">📅</span>Watch Log</button>
+      <button class="drawer-item" onclick="switchTab('watching')" data-tab="watching"><span class="di-icon">📺</span>Watching</button>
+      <button class="drawer-item" onclick="switchTab('completed')" data-tab="completed"><span class="di-icon">✅</span>Completed</button>
+      <button class="drawer-item" onclick="switchTab('givenup')" data-tab="givenup"><span class="di-icon">💔</span>Given Up</button>
+      <button class="drawer-item" onclick="switchTab('wishlist')" data-tab="wishlist"><span class="di-icon">⭐</span>Wishlist</button>
+      <button class="drawer-item" onclick="switchTab('upcoming')" data-tab="upcoming"><span class="di-icon">🔮</span>Upcoming</button>
+      <button class="drawer-item" onclick="switchTab('stats')" data-tab="stats"><span class="di-icon">📊</span>Stats</button>
+      <div class="drawer-divider"></div>
+      <button class="drawer-item" onclick="doSync();closeDrawer();"><span class="di-icon">☁️</span>Sync Now</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- Watch Log -->
+    <div id="tab-watchlog" class="tab-view active">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+        <div class="cal-nav-title" id="cal-title"></div>
+        <button class="cal-nav-btn" onclick="calNext()">›</button>
+      </div>
+      <div style="font-size:11px;color:var(--ink-dim);margin-bottom:8px;">● TV Show &nbsp; <span style="color:var(--green);">●</span> Movie</div>
+      <div class="cal-grid" id="cal-header"></div>
+      <div class="cal-grid" id="cal-body"></div>
+      <div id="cal-detail" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- Watching -->
+    <div id="tab-watching" class="tab-view">
+      <div class="search-wrap"><input id="search-watching" placeholder="Search watching..." oninput="renderWatching()"/></div>
+      <div id="watching-list"></div>
+    </div>
+
+    <!-- Completed -->
+    <div id="tab-completed" class="tab-view">
+      <div class="search-wrap"><input id="search-completed" placeholder="Search completed..." oninput="renderCompleted()"/></div>
+      <div class="pill-row" id="completed-year-pills"></div>
+      <div class="pill-row" id="completed-month-pills"></div>
+      <div id="completed-list"></div>
+    </div>
+
+    <!-- Given Up -->
+    <div id="tab-givenup" class="tab-view">
+      <div class="search-wrap"><input id="search-givenup" placeholder="Search given up..." oninput="renderGivenUp()"/></div>
+      <div id="givenup-list"></div>
+    </div>
+
+    <!-- Wishlist -->
+    <div id="tab-wishlist" class="tab-view">
+      <div class="search-wrap"><input id="search-wishlist" placeholder="Search wishlist..." oninput="renderWishlist()"/></div>
+      <div id="wishlist-list"></div>
+    </div>
+
+    <!-- Upcoming -->
+    <div id="tab-upcoming" class="tab-view">
+      <div id="upcoming-content"></div>
+    </div>
+
+    <!-- Stats -->
+    <div id="tab-stats" class="tab-view">
+      <div id="stats-content"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<!-- Modal (bottom sheet) -->
+<div id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div id="modal-sheet">
+    <div id="modal-handle"></div>
+    <div id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div id="modal-actions"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA & CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const SHEETS_URL  = 'sc:sheetsUrl';
+const CACHE_ENT   = 'sc:entries';
+const CACHE_ONG   = 'sc:ongoing';
+const CACHE_WISH  = 'sc:wishlist';
+const CACHE_UPC   = 'sc:upcoming';
+
+const PLATFORMS = ['','Netflix','Disney+','Apple TV+','Prime Video','HBO Max','Hulu','Peacock','BBC','ITVX','Gimy','Cinema','Other'];
+const MONTHS    = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_S  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAYS_F    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+let entries = [], ongoing = [], wishlist = [], upcoming = [];
+let _sheetsUrl = localStorage.getItem(SHEETS_URL) || '';
+
+// Calendar state
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+// Completed filter state
+let cmpYear = 'all', cmpMonth = 'all';
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function todayYMD(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function toYMD(v){
+  if(!v) return '';
+  const s=String(v);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0,10);
+  const d=new Date(v); if(isNaN(d.getTime())) return '';
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
+function fmtDate(ymd){ if(!ymd) return ''; const d=new Date(ymd+'T12:00:00'); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+function daysUntil(ymd){ const t=new Date(todayYMD()+'T12:00:00'),tg=new Date(ymd+'T12:00:00'); return Math.round((tg-t)/86400000); }
+function starsDisplay(n,max=10){ if(!n) return ''; return '★'.repeat(n)+'☆'.repeat(max-n); }
+function starsDisplay5(n){ if(!n) return ''; return '★'.repeat(n)+'☆'.repeat(5-n); }
+function typeBadge(t){ return `<span class="type-badge ${t==='Movie'?'movie':'tv'}">${esc(t||'TV Show')}</span>`; }
+
+let toastT;
+function showToast(m,err=false){
+  const el=document.getElementById('toast');
+  el.textContent=m; el.classList.toggle('err',err);
+  el.classList.add('show'); clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CACHE
+// ═══════════════════════════════════════════════════════════════
+function loadCache(){
+  try{ entries  = JSON.parse(localStorage.getItem(CACHE_ENT) ||'[]'); }catch{ entries=[]; }
+  try{ ongoing  = JSON.parse(localStorage.getItem(CACHE_ONG) ||'[]'); }catch{ ongoing=[]; }
+  try{ wishlist = JSON.parse(localStorage.getItem(CACHE_WISH)||'[]'); }catch{ wishlist=[]; }
+  try{ upcoming = JSON.parse(localStorage.getItem(CACHE_UPC) ||'[]'); }catch{ upcoming=[]; }
+}
+function saveCache(){
+  localStorage.setItem(CACHE_ENT,  JSON.stringify(entries));
+  localStorage.setItem(CACHE_ONG,  JSON.stringify(ongoing));
+  localStorage.setItem(CACHE_WISH, JSON.stringify(wishlist));
+  localStorage.setItem(CACHE_UPC,  JSON.stringify(upcoming));
+}
+
+function normEntries(rows){ return (rows||[]).map(e=>({
+  id:Number(e.id)||Date.now(), title:String(e.title||''), type:String(e.type||'TV Show'),
+  platform:String(e.platform||''), season:String(e.season||''), episode:String(e.episode||''),
+  episodeTo:String(e.episodeTo||''), totalEp:String(e.totalEp||''),
+  date:toYMD(e.date)||'', notes:String(e.notes||''), rating:e.rating||''
+})).filter(e=>e.title); }
+
+function normOngoing(rows){ return (rows||[]).map(o=>({
+  id:Number(o.id)||Date.now(), title:String(o.title||''), completedType:String(o.completedType||'TV Show'),
+  platform:String(o.platform||''), season:String(o.season||''), currentEp:String(o.currentEp||''),
+  totalEp:String(o.totalEp||''), airingStatus:String(o.airingStatus||''),
+  completed:o.completed===true||String(o.completed).toLowerCase()==='true',
+  completedDate:toYMD(o.completedDate)||'',
+  givenUp:o.givenUp===true||String(o.givenUp).toLowerCase()==='true',
+  givenUpDate:toYMD(o.givenUpDate)||'', givenUpReason:String(o.givenUpReason||''),
+  score:o.score!==''&&o.score!=null?Number(o.score):null,
+  review:String(o.review||''), notes:String(o.notes||''), posterUrl:String(o.posterUrl||''),
+  airDay:o.airDay!==undefined&&o.airDay!==''?Number(o.airDay):'',
+  firstAirDate:toYMD(o.firstAirDate)||''
+})).filter(o=>o.title); }
+
+function normWishlist(rows){ return (rows||[]).map(w=>({
+  id:Number(w.id)||Date.now(), title:String(w.title||''), type:String(w.type||'TV Show'),
+  platform:String(w.platform||''), notes:String(w.notes||''), added:String(w.added||'')
+})).filter(w=>w.title); }
+
+function normUpcoming(rows){ return (rows||[]).map(u=>({
+  id:Number(u.id)||Date.now(), title:String(u.title||''), type:String(u.type||'TV Show'),
+  platform:String(u.platform||''), season:String(u.season||''),
+  releaseDate:toYMD(u.releaseDate)||'', releaseYear:String(u.releaseYear||''),
+  airDay:u.airDay!==undefined&&u.airDay!==''?Number(u.airDay):'',
+  firstAirDate:toYMD(u.firstAirDate)||'', totalEp:String(u.totalEp||''), notes:String(u.notes||'')
+})).filter(u=>u.title); }
+
+// ═══════════════════════════════════════════════════════════════
+// SYNC
+// ═══════════════════════════════════════════════════════════════
+function setSyncStatus(s){
+  const dot=document.getElementById('sync-dot');
+  dot.className=''; dot.classList.add(s==='syncing'?'syncing':s==='error'?'pending':'');
+}
+
+async function doSync(){
+  if(!_sheetsUrl){ showToast('Set Sheets URL in Settings',true); return; }
+  setSyncStatus('syncing');
+  try{
+    const r=await fetch(_sheetsUrl);
+    const d=await r.json();
+    entries  = normEntries(d.entries);
+    ongoing  = normOngoing(d.ongoing);
+    wishlist = normWishlist(d.wishlist);
+    upcoming = normUpcoming(d.upcoming||[]);
+    saveCache();
+    setSyncStatus('synced');
+    showToast('✓ Synced');
+    rerender();
+  }catch(e){
+    setSyncStatus('error');
+    showToast('⚠ Sync failed',true);
+  }
+}
+
+async function pushUpsert(sheet, data){
+  if(!_sheetsUrl) return;
+  try{ await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'upsert',sheet,data}),headers:{'Content-Type':'text/plain'}}); setSyncStatus('synced'); }
+  catch{ setSyncStatus('error'); showToast('⚠ Save failed — cached locally',true); }
+}
+async function pushDelete(sheet, id){
+  if(!_sheetsUrl) return;
+  try{ await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'delete',sheet,id}),headers:{'Content-Type':'text/plain'}}); }
+  catch{ showToast('⚠ Delete sync failed',true); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+let _currentTab = 'watchlog';
+
+function openDrawer(){
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+
+function switchTab(tab){
+  closeDrawer();
+  _currentTab=tab;
+  document.querySelectorAll('.tab-view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.querySelectorAll('.drawer-item[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(tab==='watchlog')   renderWatchLog();
+  if(tab==='watching')   renderWatching();
+  if(tab==='completed')  renderCompleted();
+  if(tab==='givenup')    renderGivenUp();
+  if(tab==='wishlist')   renderWishlist();
+  if(tab==='upcoming')   renderUpcoming();
+  if(tab==='stats')      renderStats();
+  document.getElementById('content').scrollTop=0;
+}
+
+function rerender(){
+  if(_currentTab==='watchlog')  renderWatchLog();
+  if(_currentTab==='watching')  renderWatching();
+  if(_currentTab==='completed') renderCompleted();
+  if(_currentTab==='givenup')   renderGivenUp();
+  if(_currentTab==='wishlist')  renderWishlist();
+  if(_currentTab==='upcoming')  renderUpcoming();
+  if(_currentTab==='stats')     renderStats();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WATCH LOG (CALENDAR)
+// ═══════════════════════════════════════════════════════════════
+let _calSelDay = null;
+
+function calPrev(){ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderWatchLog(); }
+function calNext(){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderWatchLog(); }
+
+function renderWatchLog(){
+  const today=todayYMD();
+  document.getElementById('cal-title').textContent=MONTHS[calMonth]+' '+calYear;
+  const hd=document.getElementById('cal-header');
+  hd.innerHTML=DAYS_S.map(d=>`<div class="cal-day-hd">${d}</div>`).join('');
+  const firstDow=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  // Build date→entries map
+  const entMap={};
+  entries.forEach(e=>{
+    if(!e.date) return;
+    const ymd=toYMD(e.date);
+    if(!ymd) return;
+    const [y,m]=ymd.split('-').map(Number);
+    if(y===calYear&&m===calMonth+1){
+      if(!entMap[ymd]) entMap[ymd]=[];
+      entMap[ymd].push(e);
+    }
+  });
+  let html='';
+  for(let i=0;i<firstDow;i++) html+='<div></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const ymd=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const evs=entMap[ymd]||[];
+    const isToday=ymd===today;
+    const isSel=ymd===_calSelDay;
+    html+=`<div class="cal-day${isToday?' today':''}${isSel?' today':''}" onclick="calSelectDay('${ymd}')">
+      <div class="cal-day-num">${d}</div>
+      ${evs.slice(0,4).map(e=>`<span class="cal-dot${e.type==='Movie'?' movie':''}"></span>`).join('')}
+    </div>`;
+  }
+  document.getElementById('cal-body').innerHTML=html;
+  if(_calSelDay) renderCalDetail(_calSelDay);
+}
+
+function calSelectDay(ymd){
+  _calSelDay=(_calSelDay===ymd)?null:ymd;
+  renderWatchLog();
+}
+
+function renderCalDetail(ymd){
+  const evs=entries.filter(e=>toYMD(e.date)===ymd);
+  const det=document.getElementById('cal-detail');
+  if(!evs.length){ det.innerHTML=''; return; }
+  det.innerHTML=`<div class="card"><div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:10px;">${fmtDate(ymd)} <span style="font-weight:400;font-size:12px;color:var(--ink-dim);">${evs.length} entr${evs.length===1?'y':'ies'}</span></div>`+
+    evs.map(e=>{
+      const ep=e.episodeTo?`Ep ${e.episode}–${e.episodeTo}`:e.episode?`Ep ${e.episode}`:'';
+      const sub=[e.platform,e.season?'S'+e.season:'',ep].filter(Boolean).join(' · ');
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${esc(e.title)}</div>
+          <div style="font-size:12px;color:var(--ink-dim);">${esc(sub)}</div>
+          ${e.rating?`<div style="font-size:11px;color:var(--accent);">${starsDisplay5(Number(e.rating))}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-sm btn-secondary" onclick="openEditEntryModal(${e.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteEntry(${e.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WATCHING TAB
+// ═══════════════════════════════════════════════════════════════
+function renderWatching(){
+  const q=(document.getElementById('search-watching')?.value||'').toLowerCase();
+  const active=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie');
+  const filtered=q?active.filter(o=>o.title.toLowerCase().includes(q)):active;
+  const el=document.getElementById('watching-list');
+  if(!filtered.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">📺</div><div class="empty-text">Nothing here yet.</div></div>`; return; }
+  el.innerHTML=filtered.map(o=>{
+    const cur=parseInt(o.currentEp)||0, tot=parseInt(o.totalEp)||0;
+    const pct=tot>0?Math.min(100,Math.round(cur/tot*100)):0;
+    return `<div class="show-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div class="show-card-title">${esc(o.title)}</div>
+          <div class="show-card-meta">${esc([o.platform,o.season?'S'+o.season:''].filter(Boolean).join(' · '))}</div>
+          ${tot>0?`<div style="font-size:11px;color:var(--ink-dim);margin-top:2px;">Ep ${cur}/${tot}</div>`:''}
+          ${tot>0?`<div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>`:''}
+        </div>
+        <div style="flex-shrink:0;">${typeBadge(o.completedType)}</div>
+      </div>
+      <div class="show-card-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openOngoingModal('${o.id}')">Edit</button>
+        <button class="btn btn-sm btn-primary" onclick="quickComplete('${o.id}')">✓ Complete</button>
+        <button class="btn btn-sm btn-ghost" onclick="quickGiveUp('${o.id}')">💔 Give Up</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPLETED TAB
+// ═══════════════════════════════════════════════════════════════
+function renderCompleted(){
+  const q=(document.getElementById('search-completed')?.value||'').toLowerCase();
+  let items=ongoing.filter(o=>o.completed&&!o.givenUp);
+  if(q) items=items.filter(o=>o.title.toLowerCase().includes(q));
+
+  // Year pills
+  const years=[...new Set(items.map(o=>o.completedDate?.slice(0,4)).filter(Boolean))].sort((a,b)=>b-a);
+  const ypEl=document.getElementById('completed-year-pills');
+  ypEl.innerHTML=[{v:'all',l:'All'},...years.map(y=>({v:y,l:y}))].map(({v,l})=>
+    `<button class="pill${cmpYear===v?' active':''}" onclick="cmpYear='${v}';cmpMonth='all';renderCompleted();">${l}</button>`).join('');
+
+  if(cmpYear!=='all') items=items.filter(o=>o.completedDate?.startsWith(cmpYear));
+
+  // Month pills
+  const months=[...new Set(items.map(o=>o.completedDate?.slice(5,7)).filter(Boolean))].sort();
+  const mpEl=document.getElementById('completed-month-pills');
+  mpEl.innerHTML=months.length>1?[{v:'all',l:'All'},...months.map(m=>({v:m,l:MONTHS_S[parseInt(m)-1]}))].map(({v,l})=>
+    `<button class="pill${cmpMonth===v?' active':''}" onclick="cmpMonth='${v}';renderCompleted();">${l}</button>`).join(''):'';
+
+  if(cmpMonth!=='all') items=items.filter(o=>o.completedDate?.slice(5,7)===cmpMonth);
+  items.sort((a,b)=>(a.completedDate||'').localeCompare(b.completedDate||''));
+
+  const el=document.getElementById('completed-list');
+  if(!items.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No completed shows yet.</div></div>`; return; }
+
+  // Group by month
+  const byMonth={};
+  items.forEach(o=>{
+    const [y,m]=(o.completedDate||'2000-01').split('-');
+    const k=`${y}-${m}`;
+    if(!byMonth[k]) byMonth[k]={label:`${MONTHS[parseInt(m)-1]} ${y}`,items:[]};
+    byMonth[k].items.push(o);
+  });
+
+  el.innerHTML=Object.entries(byMonth).map(([k,{label,items:grp}])=>`
+    <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink);margin:16px 0 8px;">${label}</div>
+    ${grp.map(o=>`<div class="show-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div class="show-card-title">${esc(o.title)}</div>
+          <div class="show-card-meta">${esc([o.platform,o.season?'S'+o.season:'',o.totalEp?o.totalEp+' eps':''].filter(Boolean).join(' · '))}</div>
+          ${o.score?`<div class="show-card-rating">${starsDisplay(o.score)} ${o.score}/10</div>`:''}
+        </div>
+        <div style="flex-shrink:0;">${typeBadge(o.completedType)}</div>
+      </div>
+      ${o.review?`<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;font-style:italic;">${esc(o.review.slice(0,120))}${o.review.length>120?'…':''}</div>`:''}
+      <div class="show-card-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openOngoingModal('${o.id}')">Edit</button>
+        <button class="btn btn-sm btn-ghost" onclick="deleteOngoing('${o.id}')">Delete</button>
+      </div>
+    </div>`).join('')}
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GIVEN UP TAB
+// ═══════════════════════════════════════════════════════════════
+function renderGivenUp(){
+  const q=(document.getElementById('search-givenup')?.value||'').toLowerCase();
+  let items=ongoing.filter(o=>o.givenUp);
+  if(q) items=items.filter(o=>o.title.toLowerCase().includes(q));
+  const el=document.getElementById('givenup-list');
+  if(!items.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">💔</div><div class="empty-text">No given up shows.</div></div>`; return; }
+  el.innerHTML=items.map(o=>`<div class="show-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div class="show-card-title">${esc(o.title)}</div>
+        <div class="show-card-meta">${esc([o.platform,o.season?'S'+o.season:''].filter(Boolean).join(' · '))}</div>
+        ${o.givenUpReason?`<div style="font-size:11px;color:var(--ink-dim);margin-top:2px;">Reason: ${esc(o.givenUpReason)}</div>`:''}
+      </div>
+      ${typeBadge(o.completedType)}
+    </div>
+    <div class="show-card-actions">
+      <button class="btn btn-sm btn-secondary" onclick="undoGiveUp('${o.id}')">↩ Undo</button>
+      <button class="btn btn-sm btn-ghost" onclick="deleteOngoing('${o.id}')">Delete</button>
+    </div>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WISHLIST TAB
+// ═══════════════════════════════════════════════════════════════
+function renderWishlist(){
+  const q=(document.getElementById('search-wishlist')?.value||'').toLowerCase();
+  let items=[...wishlist].sort((a,b)=>a.title.localeCompare(b.title));
+  if(q) items=items.filter(w=>w.title.toLowerCase().includes(q));
+  const el=document.getElementById('wishlist-list');
+  if(!items.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">⭐</div><div class="empty-text">Your wishlist is empty.</div></div>`+
+    `<button class="btn btn-primary btn-full" onclick="openWishModal()">+ Add to Wishlist</button>`; return; }
+  el.innerHTML=`<button class="btn btn-primary btn-full" onclick="openWishModal()" style="margin-bottom:12px;">+ Add to Wishlist</button>`+
+    items.map(w=>`<div class="show-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="show-card-title">${esc(w.title)}</div>
+          <div class="show-card-meta">${esc([w.platform,w.type].filter(Boolean).join(' · '))}</div>
+          ${w.notes?`<div style="font-size:11px;color:var(--ink-dim);margin-top:2px;">${esc(w.notes)}</div>`:''}
+        </div>
+        ${typeBadge(w.type)}
+      </div>
+      <div class="show-card-actions">
+        <button class="btn btn-sm btn-primary" onclick="moveWishToWatching('${w.id}')">+ Watch</button>
+        <button class="btn btn-sm btn-ghost" onclick="deleteWish('${w.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UPCOMING TAB
+// ═══════════════════════════════════════════════════════════════
+function epDateCalc(firstAirDate,airDay,epNum){
+  if(!firstAirDate||airDay==='') return null;
+  const base=new Date(firstAirDate+'T12:00:00');
+  const diff=((airDay-base.getDay())+7)%7;
+  const ep1=new Date(base); ep1.setDate(ep1.getDate()+diff);
+  const tgt=new Date(ep1); tgt.setDate(ep1.getDate()+(epNum-1)*7);
+  return tgt.getFullYear()+'-'+String(tgt.getMonth()+1).padStart(2,'0')+'-'+String(tgt.getDate()).padStart(2,'0');
+}
+
+function renderUpcoming(){
+  const today=todayYMD();
+  const confirmed=upcoming.filter(u=>u.releaseDate).sort((a,b)=>a.releaseDate.localeCompare(b.releaseDate));
+  const tba=upcoming.filter(u=>!u.releaseDate).sort((a,b)=>(a.releaseYear||'9999').localeCompare(b.releaseYear||'9999')||a.title.localeCompare(b.title));
+
+  function upCard(u){
+    const hasDate=!!u.releaseDate, released=hasDate&&u.releaseDate<=today;
+    const days=hasDate?daysUntil(u.releaseDate):null;
+    const badge=released?`<span class="upcoming-badge released">Released</span>`:
+      hasDate?`<span class="upcoming-badge soon">${days===0?'Today!':'in '+days+'d'}</span>`:
+      `<span class="upcoming-badge tba">TBA ${u.releaseYear||''}</span>`;
+    const sub=[u.platform,u.season?'S'+u.season:'',hasDate?fmtDate(u.releaseDate):''].filter(Boolean).join(' · ');
+    return `<div class="show-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div class="show-card-title">${esc(u.title)}</div>
+          <div class="show-card-meta">${esc(sub)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">${badge}${typeBadge(u.type)}</div>
+      </div>
+      <div class="show-card-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openUpcomingModal('${u.id}')">Edit</button>
+        <button class="btn btn-sm btn-ghost" onclick="deleteUpcoming('${u.id}')">Delete</button>
+      </div>
+    </div>`;
+  }
+
+  // Airing shows
+  const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate&&o.totalEp);
+  const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate&&u.totalEp);
+
+  function airingCard(title,season,platform,airDay,firstAirDate,totalEp,currentEp){
+    const tot=parseInt(totalEp)||0, start=Math.max(1,parseInt(currentEp||0)+1);
+    let rows='';
+    for(let ep=start;ep<=tot;ep++){
+      const d=epDateCalc(firstAirDate,airDay,ep); if(!d) continue;
+      const past=d<today, istoday=d===today, days=daysUntil(d);
+      rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
+        <span style="color:${past?'var(--ink-dim)':istoday?'var(--accent)':'var(--ink)'};">Ep ${ep}</span>
+        <span style="color:${past?'var(--ink-dim)':istoday?'var(--accent)':'var(--ink)'};">${fmtDate(d)}</span>
+        <span style="color:${past?'var(--ink-dim)':'var(--green)'};font-weight:600;">${past?'Aired':istoday?'🎉 Today':'in '+days+'d'}</span>
+      </div>`;
+    }
+    return `<div class="show-card" style="margin-bottom:10px;">
+      <div class="show-card-title">${esc(title)}${season?' S'+esc(season):''}</div>
+      <div class="show-card-meta">${esc(platform||'')} · Airs every ${DAYS_F[airDay]}</div>
+      <div style="margin-top:8px;">${rows||'<div style="font-size:12px;color:var(--ink-dim);">No upcoming episodes.</div>'}</div>
+    </div>`;
+  }
+
+  const airingHtml=[
+    ...airingOngoing.map(o=>airingCard(o.title,o.season,o.platform,Number(o.airDay),o.firstAirDate,o.totalEp,o.currentEp||0)),
+    ...airingUpcoming.map(u=>airingCard(u.title,u.season,u.platform,Number(u.airDay),u.firstAirDate,u.totalEp,0))
+  ].join('')||'<div class="empty"><div class="empty-text">No airing schedules set up yet.</div></div>';
+
+  document.getElementById('upcoming-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="section-hd">🔮 <em>Upcoming</em></div>
+      <button class="btn btn-sm btn-primary" onclick="openUpcomingModal(null)">+ Add</button>
+    </div>
+    ${confirmed.length||tba.length?`<div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:8px;">Coming Soon</div>${[...confirmed,...tba].map(upCard).join('')}`
+      :'<div class="empty" style="padding:20px 0;"><div class="empty-text">No upcoming entries.</div></div>'}
+    <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin:16px 0 8px;">📡 Currently Airing</div>
+    ${airingHtml}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATS TAB
+// ═══════════════════════════════════════════════════════════════
+function renderStats(){
+  const completed=ongoing.filter(o=>o.completed&&!o.givenUp);
+  const tv=completed.filter(o=>o.completedType!=='Movie');
+  const movies=completed.filter(o=>o.completedType==='Movie');
+  const thisYear=new Date().getFullYear();
+  const thisYearItems=completed.filter(o=>(o.completedDate||'').startsWith(String(thisYear)));
+  const avgScore=completed.filter(o=>o.score).reduce((a,o,_,arr)=>a+o.score/arr.length,0)||0;
+
+  // Platform breakdown
+  const platCount={};
+  completed.forEach(o=>{ const p=o.platform||'Other'; platCount[p]=(platCount[p]||0)+1; });
+  const platSorted=Object.entries(platCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxPlat=platSorted[0]?.[1]||1;
+
+  // Most watched by entries
+  const titleCount={};
+  entries.forEach(e=>{ titleCount[e.title]=(titleCount[e.title]||0)+1; });
+  const topTitles=Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxTitle=topTitles[0]?.[1]||1;
+
+  function bar(label,val,max,color='var(--accent)'){
+    return `<div class="bar-row"><div class="bar-label" title="${esc(label)}">${esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(val/max*100)}%;background:${color};"></div></div>
+      <div class="bar-val">${val}</div></div>`;
+  }
+
+  document.getElementById('stats-content').innerHTML=`
+    <div class="section-hd" style="margin-bottom:14px;">📊 <em>Stats</em></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num">${completed.length}</div><div class="stat-label">Total Completed</div></div>
+      <div class="stat-card"><div class="stat-num">${thisYearItems.length}</div><div class="stat-label">This Year (${thisYear})</div></div>
+      <div class="stat-card"><div class="stat-num">${tv.length}</div><div class="stat-label">TV Shows</div></div>
+      <div class="stat-card"><div class="stat-num">${movies.length}</div><div class="stat-label">Movies</div></div>
+      <div class="stat-card"><div class="stat-num">${entries.length}</div><div class="stat-label">Log Entries</div></div>
+      <div class="stat-card"><div class="stat-num">${avgScore>0?avgScore.toFixed(1):'—'}</div><div class="stat-label">Avg Score</div></div>
+    </div>
+    <div class="stat-card" style="margin-bottom:10px;">
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:10px;">📱 By Platform</div>
+      ${platSorted.map(([p,v])=>bar(p,v,maxPlat)).join('')||'<div style="color:var(--ink-dim);font-size:13px;">No data yet.</div>'}
+    </div>
+    <div class="stat-card">
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:10px;">📝 Most Logged</div>
+      ${topTitles.map(([t,v])=>bar(t,v,maxTitle,'var(--green)')).join('')||'<div style="color:var(--ink-dim);font-size:13px;">No data yet.</div>'}
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL SYSTEM
+// ═══════════════════════════════════════════════════════════════
+function openModal(title, bodyHtml, actions){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').innerHTML=bodyHtml;
+  document.getElementById('modal-actions').innerHTML=actions||'';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function handleOverlayClick(e){
+  if(e.target===document.getElementById('modal-overlay')) closeModal();
+}
+
+function platOpts(sel=''){
+  return PLATFORMS.map(p=>`<option value="${p}"${sel===p?' selected':''}>${p||'— Select —'}</option>`).join('');
+}
+function typeOpts(sel='TV Show'){
+  return ['TV Show','Movie'].map(t=>`<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADD ENTRY MODAL (Watch Log)
+// ═══════════════════════════════════════════════════════════════
+let _editEntryId = null, _entryRating = 0;
+
+function openAddModal(){ _editEntryId=null; _entryRating=0; buildEntryModal(null); }
+function openEditEntryModal(id){
+  _editEntryId=id; const e=entries.find(x=>String(x.id)===String(id));
+  _entryRating=Number(e?.rating)||0; buildEntryModal(e);
+}
+
+function buildEntryModal(e){
+  const today=todayYMD();
+  openModal(e?'Edit Entry':'Add Entry',`
+    <div class="field"><label>Title</label><input id="en-title" value="${esc(e?.title||'')}" placeholder="Show or movie title"/></div>
+    <div class="grid-2">
+      <div class="field"><label>Type</label><select id="en-type" onchange="entTypeChange()">${typeOpts(e?.type)}</select></div>
+      <div class="field"><label>Platform</label><select id="en-platform">${platOpts(e?.platform)}</select></div>
+    </div>
+    <div id="en-tv-fields">
+      <div class="grid-2">
+        <div class="field"><label>Season</label><input id="en-season" type="number" min="1" value="${e?.season||''}" placeholder="1"/></div>
+        <div class="field"><label>Total Eps</label><input id="en-totalep" type="number" min="1" value="${e?.totalEp||''}" placeholder="opt."/></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Ep From</label><input id="en-epfrom" type="number" min="1" value="${e?.episode||''}" placeholder="1"/></div>
+        <div class="field"><label>Ep To</label><input id="en-epto" type="number" min="1" value="${e?.episodeTo||''}" placeholder="opt."/></div>
+      </div>
+    </div>
+    <div class="field"><label>Date Watched</label><input id="en-date" type="date" value="${e?.date||today}"/></div>
+    <div class="field"><label>Rating (optional)</label>
+      <div class="stars-row" id="en-stars">${[1,2,3,4,5].map(n=>`<button class="star-btn${n<=_entryRating?' on':''}" onclick="setEntryRating(${n})">${n<=_entryRating?'★':'☆'}</button>`).join('')}</div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="en-notes" rows="2">${esc(e?.notes||'')}</textarea></div>
+  `);
+  entTypeChange();
+  document.getElementById('modal-actions').innerHTML=`
+    <button class="btn btn-primary" style="flex:1;" onclick="saveEntry()">Save</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `;
+  document.getElementById('modal-actions').style.display='flex';
+  document.getElementById('modal-actions').style.gap='10px';
+}
+
+function entTypeChange(){
+  const isMovie=document.getElementById('en-type')?.value==='Movie';
+  const tvf=document.getElementById('en-tv-fields');
+  if(tvf) tvf.style.display=isMovie?'none':'block';
+}
+
+function setEntryRating(n){
+  _entryRating=_entryRating===n?0:n;
+  document.querySelectorAll('#en-stars .star-btn').forEach((b,i)=>{
+    const filled=i+1<=_entryRating;
+    b.textContent=filled?'★':'☆';
+    b.classList.toggle('on',filled);
+  });
+}
+
+function saveEntry(){
+  const title=document.getElementById('en-title').value.trim();
+  if(!title){ showToast('Title required',true); return; }
+  const type=document.getElementById('en-type').value;
+  const isMovie=type==='Movie';
+  const date=document.getElementById('en-date').value;
+  if(!date){ showToast('Date required',true); return; }
+  const entry={
+    id:_editEntryId||Date.now(), title, type,
+    platform:document.getElementById('en-platform').value,
+    season:isMovie?'':document.getElementById('en-season').value,
+    episode:isMovie?'':document.getElementById('en-epfrom').value,
+    episodeTo:isMovie?'':document.getElementById('en-epto').value,
+    totalEp:isMovie?'':document.getElementById('en-totalep').value,
+    date, notes:document.getElementById('en-notes').value,
+    rating:_entryRating||''
+  };
+  if(_editEntryId){ entries=entries.map(e=>String(e.id)===String(_editEntryId)?entry:e); }
+  else{ entries.push(entry); }
+  saveCache(); pushUpsert('ENTRIES',entry);
+  closeModal(); showToast('✓ Saved');
+  if(_currentTab==='watchlog') renderWatchLog();
+}
+
+function deleteEntry(id){
+  if(!confirm('Delete this entry?')) return;
+  entries=entries.filter(e=>String(e.id)!==String(id));
+  saveCache(); pushDelete('ENTRIES',id);
+  showToast('Deleted'); renderWatchLog(); _calSelDay=null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ONGOING (WATCHING) MODAL
+// ═══════════════════════════════════════════════════════════════
+let _ongoingScore=0, _editOngoingId=null;
+
+function openOngoingModal(id){
+  _editOngoingId=id||null;
+  const o=id?ongoing.find(x=>String(x.id)===String(id)):null;
+  _ongoingScore=o?.score||0;
+  openModal(o?'Edit Show':'Track a Show',`
+    <div class="field"><label>Title</label><input id="ong-title" value="${esc(o?.title||'')}" placeholder="Show or movie title"/></div>
+    <div class="grid-2">
+      <div class="field"><label>Platform</label><select id="ong-platform">${platOpts(o?.platform)}</select></div>
+      <div class="field"><label>Type</label><select id="ong-type" onchange="ongTypeChange()">${typeOpts(o?.completedType)}</select></div>
+    </div>
+    <div id="ong-tv-fields">
+      <div class="grid-2">
+        <div class="field"><label>Season</label><input id="ong-season" type="number" min="1" value="${o?.season||'1'}"/></div>
+        <div class="field"><label>Total Episodes</label><input id="ong-totalep" type="number" min="1" value="${o?.totalEp||''}" placeholder="opt."/></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Current Episode</label><input id="ong-currentep" type="number" min="0" value="${o?.currentEp||''}"/></div>
+        <div class="field"><label>Airing Status</label>
+          <select id="ong-airing">
+            <option value="airing"${o?.airingStatus==='airing'||!o?.airingStatus?' selected':''}>Ongoing</option>
+            <option value="ended"${o?.airingStatus==='ended'?' selected':''}>Ended</option>
+          </select>
+        </div>
+      </div>
+      <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📡 Airing Schedule (optional)</div>
+        <div class="grid-2">
+          <div class="field"><label>Airs every</label>
+            <select id="ong-airday">
+              <option value="">— None —</option>
+              ${DAYS_F.map((d,i)=>`<option value="${i}"${o?.airDay===i?' selected':''}>${d}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>First episode date</label><input id="ong-firstairdate" type="date" value="${o?.firstAirDate||''}"/></div>
+        </div>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:8px;">
+      <label><input type="checkbox" id="ong-completed" onchange="ongCompletedChange()"${o?.completed?' checked':''}> Mark as completed</label>
+    </div>
+    <div id="ong-completed-row" style="display:${o?.completed?'block':'none'};">
+      <div class="field"><label>Completion Date</label><input id="ong-completeddate" type="date" value="${o?.completedDate||''}"/></div>
+      <div class="field"><label>Rating (out of 10)</label>
+        <div class="stars-row" id="ong-stars">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="star-btn${n<=_ongoingScore?' on':''}" onclick="setOngScore(${n})">★</button>`).join('')}</div>
+        <div class="score-label" id="ong-score-label">${_ongoingScore>0?_ongoingScore+'/10':''}</div>
+      </div>
+      <div class="field"><label>Review</label><textarea id="ong-review" rows="3" placeholder="What did you think?">${esc(o?.review||'')}</textarea></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="ong-notes" rows="2">${esc(o?.notes||'')}</textarea></div>
+  `);
+  ongTypeChange();
+  document.getElementById('modal-actions').innerHTML=`
+    <button class="btn btn-primary" style="flex:1;" onclick="saveOngoing()">Save</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `;
+  document.getElementById('modal-actions').style.cssText='display:flex;gap:10px;';
+}
+
+function ongTypeChange(){
+  const isMovie=document.getElementById('ong-type')?.value==='Movie';
+  const tvf=document.getElementById('ong-tv-fields');
+  if(tvf) tvf.style.display=isMovie?'none':'block';
+}
+function ongCompletedChange(){
+  const checked=document.getElementById('ong-completed')?.checked;
+  const row=document.getElementById('ong-completed-row');
+  if(row) row.style.display=checked?'block':'none';
+}
+function setOngScore(n){
+  _ongoingScore=n;
+  document.querySelectorAll('#ong-stars .star-btn').forEach((b,i)=>b.classList.toggle('on',i<n));
+  const lbl=document.getElementById('ong-score-label');
+  if(lbl) lbl.textContent=n>0?n+'/10':'';
+}
+
+function saveOngoing(){
+  const title=document.getElementById('ong-title').value.trim();
+  if(!title){ showToast('Title required',true); return; }
+  const isCompleted=document.getElementById('ong-completed').checked;
+  const airDayEl=document.getElementById('ong-airday');
+  const item={
+    id:_editOngoingId||Date.now(), title,
+    platform:document.getElementById('ong-platform').value,
+    completedType:document.getElementById('ong-type').value,
+    season:document.getElementById('ong-season')?.value||'',
+    totalEp:document.getElementById('ong-totalep')?.value||'',
+    currentEp:document.getElementById('ong-currentep')?.value||'',
+    airingStatus:document.getElementById('ong-airing')?.value||'',
+    completed:isCompleted,
+    completedDate:isCompleted?(document.getElementById('ong-completeddate')?.value||''):'',
+    givenUp:false, givenUpDate:'', givenUpReason:'',
+    score:isCompleted?(_ongoingScore||null):null,
+    review:isCompleted?(document.getElementById('ong-review')?.value||''):'',
+    notes:document.getElementById('ong-notes').value,
+    posterUrl:'',
+    airDay:airDayEl?.value!==''&&airDayEl?.value!==undefined?Number(airDayEl.value):'',
+    firstAirDate:document.getElementById('ong-firstairdate')?.value||''
+  };
+  if(_editOngoingId){ ongoing=ongoing.map(o=>String(o.id)===String(_editOngoingId)?item:o); }
+  else{ ongoing.push(item); }
+  saveCache(); pushUpsert('ONGOING',item);
+  closeModal(); showToast('✓ Saved'); rerender();
+}
+
+function quickComplete(id){
+  const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
+  const updated={...o,completed:true,completedDate:todayYMD()};
+  ongoing=ongoing.map(x=>String(x.id)===String(id)?updated:x);
+  saveCache(); pushUpsert('ONGOING',updated);
+  showToast('✓ Marked complete'); rerender();
+}
+function quickGiveUp(id){
+  const reason=prompt('Reason for giving up? (optional)');
+  if(reason===null) return;
+  const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
+  const updated={...o,givenUp:true,givenUpDate:todayYMD(),givenUpReason:reason||''};
+  ongoing=ongoing.map(x=>String(x.id)===String(id)?updated:x);
+  saveCache(); pushUpsert('ONGOING',updated);
+  showToast('💔 Moved to Given Up'); rerender();
+}
+function undoGiveUp(id){
+  const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
+  const updated={...o,givenUp:false,givenUpDate:'',givenUpReason:''};
+  ongoing=ongoing.map(x=>String(x.id)===String(id)?updated:x);
+  saveCache(); pushUpsert('ONGOING',updated);
+  showToast('↩ Moved back to Watching'); rerender();
+}
+function deleteOngoing(id){
+  if(!confirm('Delete this show?')) return;
+  ongoing=ongoing.filter(o=>String(o.id)!==String(id));
+  saveCache(); pushDelete('ONGOING',id);
+  showToast('Deleted'); rerender();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WISHLIST MODAL
+// ═══════════════════════════════════════════════════════════════
+let _editWishId=null;
+
+function openWishModal(id){
+  _editWishId=id||null;
+  const w=id?wishlist.find(x=>String(x.id)===String(id)):null;
+  openModal(w?'Edit Wishlist Item':'Add to Wishlist',`
+    <div class="field"><label>Title</label><input id="wl-title" value="${esc(w?.title||'')}" placeholder="Show or movie title"/></div>
+    <div class="grid-2">
+      <div class="field"><label>Type</label><select id="wl-type">${typeOpts(w?.type)}</select></div>
+      <div class="field"><label>Platform</label><select id="wl-platform">${platOpts(w?.platform)}</select></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="wl-notes" rows="2">${esc(w?.notes||'')}</textarea></div>
+  `);
+  document.getElementById('modal-actions').innerHTML=`
+    <button class="btn btn-primary" style="flex:1;" onclick="saveWish()">Save</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `;
+  document.getElementById('modal-actions').style.cssText='display:flex;gap:10px;';
+}
+
+function saveWish(){
+  const title=document.getElementById('wl-title').value.trim();
+  if(!title){ showToast('Title required',true); return; }
+  const item={
+    id:_editWishId||Date.now(), title,
+    type:document.getElementById('wl-type').value,
+    platform:document.getElementById('wl-platform').value,
+    notes:document.getElementById('wl-notes').value,
+    added:todayYMD()
+  };
+  if(_editWishId){ wishlist=wishlist.map(w=>String(w.id)===String(_editWishId)?item:w); }
+  else{ wishlist.push(item); }
+  saveCache(); pushUpsert('WISHLIST',item);
+  closeModal(); showToast('✓ Saved'); rerender();
+}
+function deleteWish(id){
+  if(!confirm('Remove from wishlist?')) return;
+  wishlist=wishlist.filter(w=>String(w.id)!==String(id));
+  saveCache(); pushDelete('WISHLIST',id);
+  showToast('Deleted'); renderWishlist();
+}
+function moveWishToWatching(id){
+  const w=wishlist.find(x=>String(x.id)===String(id)); if(!w) return;
+  const newItem={
+    id:Date.now(), title:w.title, completedType:w.type||'TV Show',
+    platform:w.platform, season:'1', currentEp:'', totalEp:'',
+    airingStatus:'airing', completed:false, completedDate:'',
+    givenUp:false, givenUpDate:'', givenUpReason:'',
+    score:null, review:'', notes:'', posterUrl:'', airDay:'', firstAirDate:''
+  };
+  ongoing.push(newItem);
+  wishlist=wishlist.filter(x=>String(x.id)!==String(id));
+  saveCache(); pushUpsert('ONGOING',newItem); pushDelete('WISHLIST',id);
+  showToast('✓ Moved to Watching'); rerender();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UPCOMING MODAL
+// ═══════════════════════════════════════════════════════════════
+let _editUpcomingId=null;
+
+function openUpcomingModal(id){
+  _editUpcomingId=id||null;
+  const u=id?upcoming.find(x=>String(x.id)===String(id)):null;
+  openModal(u?'Edit Upcoming':'Add Upcoming',`
+    <div class="field"><label>Title</label><input id="up-title" value="${esc(u?.title||'')}" placeholder="Show or movie title"/></div>
+    <div class="grid-2">
+      <div class="field"><label>Type</label><select id="up-type" onchange="upTypeChange()">${typeOpts(u?.type)}</select></div>
+      <div class="field"><label>Platform</label><select id="up-platform">${platOpts(u?.platform)}</select></div>
+    </div>
+    <div id="up-tv-fields">
+      <div class="field"><label>Season</label><input id="up-season" type="number" min="1" value="${u?.season||''}" placeholder="e.g. 2"/></div>
+    </div>
+    <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
+      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||''}"/></div>
+      <div class="field"><label>Year only (if date unknown)</label><input id="up-releaseyear" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/></div>
+    </div>
+    <div id="up-airing-fields" style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📡 Airing Schedule</div>
+      <div class="grid-2">
+        <div class="field"><label>Airs every</label>
+          <select id="up-airday">
+            <option value="">— None —</option>
+            ${DAYS_F.map((d,i)=>`<option value="${i}"${u?.airDay===i?' selected':''}>${d}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>First episode date</label><input id="up-firstairdate" type="date" value="${u?.firstAirDate||''}"/></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Total Episodes</label><input id="up-totalep" type="number" min="1" value="${u?.totalEp||''}"/></div>
+      </div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="up-notes" rows="2">${esc(u?.notes||'')}</textarea></div>
+  `);
+  upTypeChange();
+  document.getElementById('modal-actions').innerHTML=`
+    <button class="btn btn-primary" style="flex:1;" onclick="saveUpcoming()">Save</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `;
+  document.getElementById('modal-actions').style.cssText='display:flex;gap:10px;';
+}
+
+function upTypeChange(){
+  const isMovie=document.getElementById('up-type')?.value==='Movie';
+  const tvf=document.getElementById('up-tv-fields');
+  const airf=document.getElementById('up-airing-fields');
+  if(tvf) tvf.style.display=isMovie?'none':'block';
+  if(airf) airf.style.display=isMovie?'none':'block';
+}
+
+function saveUpcoming(){
+  const title=document.getElementById('up-title').value.trim();
+  if(!title){ showToast('Title required',true); return; }
+  const airDayEl=document.getElementById('up-airday');
+  const item={
+    id:_editUpcomingId||Date.now(), title,
+    type:document.getElementById('up-type').value,
+    platform:document.getElementById('up-platform').value,
+    season:document.getElementById('up-season')?.value||'',
+    releaseDate:document.getElementById('up-releasedate').value||'',
+    releaseYear:document.getElementById('up-releasedate').value?'':(document.getElementById('up-releaseyear').value||''),
+    airDay:airDayEl?.value!==''?Number(airDayEl.value):'',
+    firstAirDate:document.getElementById('up-firstairdate').value||'',
+    totalEp:document.getElementById('up-totalep')?.value||'',
+    notes:document.getElementById('up-notes').value
+  };
+  if(_editUpcomingId){ upcoming=upcoming.map(u=>String(u.id)===String(_editUpcomingId)?item:u); }
+  else{ upcoming.push(item); }
+  saveCache(); pushUpsert('UPCOMING',item);
+  closeModal(); showToast('✓ Saved'); rerender();
+}
+
+function deleteUpcoming(id){
+  if(!confirm('Remove this upcoming entry?')) return;
+  upcoming=upcoming.filter(u=>String(u.id)!==String(id));
+  saveCache(); pushDelete('UPCOMING',id);
+  showToast('Deleted'); renderUpcoming();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS (Sheets URL)
+// ═══════════════════════════════════════════════════════════════
+function openSettingsModal(){
+  openModal('Settings',`
+    <div class="field"><label>Apps Script URL</label>
+      <input id="settings-url" type="url" value="${esc(_sheetsUrl)}" placeholder="https://script.google.com/..."/>
+    </div>
+    <p style="font-size:12px;color:var(--ink-dim);">Paste your Google Apps Script URL to enable cloud sync.</p>
+  `);
+  document.getElementById('modal-actions').innerHTML=`
+    <button class="btn btn-primary" style="flex:1;" onclick="saveSettings()">Save</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `;
+  document.getElementById('modal-actions').style.cssText='display:flex;gap:10px;';
+}
+function saveSettings(){
+  const url=document.getElementById('settings-url').value.trim();
+  _sheetsUrl=url;
+  localStorage.setItem(SHEETS_URL,url);
+  closeModal(); showToast('✓ Saved');
+  if(url) doSync();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+loadCache();
+renderWatchLog();
+
+// Add Settings to drawer
+document.querySelector('.drawer-nav').insertAdjacentHTML('beforeend',
+  `<button class="drawer-item" onclick="openSettingsModal();closeDrawer();" data-tab="settings"><span class="di-icon">⚙️</span>Settings</button>`);
+
+// Auto-sync on load
+if(_sheetsUrl) setTimeout(()=>doSync(), 600);
+
+// Service Worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
