@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v1.1</div>
+      <div id="header-sub">your watch journal · v1.2</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v1.1 · mobile</div>
+      <div id="drawer-version">v1.2 · mobile</div>
     </div>
     <div class="drawer-nav">
       <button class="drawer-item active" onclick="switchTab('watchlog')" data-tab="watchlog"><span class="di-icon">📅</span>Watch Log</button>
@@ -463,7 +463,16 @@ function switchTab(tab){
   document.getElementById('content').scrollTop=0;
 }
 
+function autoMergeUpcoming(){
+  if(!upcoming.length) return;
+  const key=t=>String(t||'').trim().toLowerCase();
+  const merged=upcoming.filter(u=>ongoing.some(o=>key(o.title)===key(u.title)&&String(o.season||'')===String(u.season||'')&&!o.givenUp));
+  if(!merged.length) return;
+  upcoming=upcoming.filter(u=>!merged.includes(u));
+  saveCache(); merged.forEach(u=>pushDelete('UPCOMING',u.id));
+}
 function rerender(){
+  autoMergeUpcoming();
   if(_currentTab==='watchlog')  renderWatchLog();
   if(_currentTab==='watching')  renderWatching();
   if(_currentTab==='completed') renderCompleted();
@@ -894,6 +903,40 @@ function setEntryRating(n){
   });
 }
 
+function updateOngoingFromEntry(entry){
+  const key=t=>String(t||'').trim().toLowerCase();
+  if(entry.type==='Movie'){
+    // Movies: mark completed in Ongoing immediately
+    const m=ongoing.find(o=>key(o.title)===key(entry.title)&&o.completedType==='Movie');
+    if(m){
+      if(!m.completed){ const u={...m,completed:true,completedDate:entry.date||todayYMD()};
+        ongoing=ongoing.map(o=>String(o.id)===String(m.id)?u:o); pushUpsert('ONGOING',u); }
+    } else {
+      const item={id:Date.now()+Math.random(),title:entry.title,completedType:'Movie',platform:entry.platform||'',
+        season:'',currentEp:'',totalEp:'',airingStatus:'',completed:true,completedDate:entry.date||todayYMD(),
+        givenUp:false,givenUpDate:'',givenUpReason:'',score:null,review:'',notes:'',posterUrl:'',airDay:'',firstAirDate:''};
+      ongoing.push(item); pushUpsert('ONGOING',item);
+    }
+    return;
+  }
+  // TV: bump currentEp on matching title+season if this entry is further along
+  const epMax=Math.max(Number(entry.episode)||0,Number(entry.episodeTo)||0);
+  if(!epMax) return;
+  const o=ongoing.find(x=>key(x.title)===key(entry.title)&&String(x.season)===String(entry.season)&&!x.completed&&!x.givenUp);
+  if(o){
+    if(epMax>(Number(o.currentEp)||0)){
+      const u={...o,currentEp:String(epMax)};
+      if(entry.totalEp&&!o.totalEp) u.totalEp=String(entry.totalEp);
+      ongoing=ongoing.map(x=>String(x.id)===String(o.id)?u:x); pushUpsert('ONGOING',u);
+    }
+  } else if(!ongoing.some(x=>key(x.title)===key(entry.title)&&String(x.season)===String(entry.season))){
+    const item={id:Date.now()+Math.random(),title:entry.title,completedType:'TV Show',platform:entry.platform||'',
+      season:String(entry.season||''),currentEp:String(epMax),totalEp:String(entry.totalEp||''),airingStatus:'',
+      completed:false,completedDate:'',givenUp:false,givenUpDate:'',givenUpReason:'',score:null,review:'',notes:'',posterUrl:'',airDay:'',firstAirDate:''};
+    ongoing.push(item); pushUpsert('ONGOING',item);
+  }
+}
+
 function saveEntry(){
   const title=document.getElementById('en-title').value.trim();
   if(!title){ showToast('Title required',true); return; }
@@ -913,6 +956,7 @@ function saveEntry(){
   };
   if(_editEntryId){ entries=entries.map(e=>String(e.id)===String(_editEntryId)?entry:e); }
   else{ entries.push(entry); }
+  updateOngoingFromEntry(entry);
   saveCache(); pushUpsert('ENTRIES',entry);
   closeModal(); showToast('✓ Saved');
   if(_currentTab==='watchlog') renderWatchLog();
@@ -1036,7 +1080,8 @@ function saveOngoing(){
 
 function quickComplete(id){
   const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
-  const updated={...o,completed:true,completedDate:todayYMD()};
+  const updated={...o,completed:true,completedDate:todayYMD(),
+    currentEp:o.totalEp?String(o.totalEp):o.currentEp};
   ongoing=ongoing.map(x=>String(x.id)===String(id)?updated:x);
   saveCache(); pushUpsert('ONGOING',updated);
   showToast('✓ Marked complete'); rerender();
