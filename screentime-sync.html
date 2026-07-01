@@ -153,6 +153,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
         <span id="sync-status-lbl">Local</span>
       </button>
       <button class="header-btn-file" id="sheets-sync-btn" onclick="hasSheetsUrl()?pullFromSheets(false):openSyncSettings()" style="cursor:pointer;">☁️ Sync</button>
+      <span id="last-sync-label" style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);"></span>
     </div>
   </div>
   <p id="stats-bar" style="display:none;"></p>
@@ -226,6 +227,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
         <p class="hint">Change to backdate this entry.</p>
         <p id="ef-date-error" style="color:#d4603a;font-family:'DM Sans',sans-serif;font-size:12px;margin-top:4px;display:none;">📅 That's in the future! Please pick today or an earlier date.</p>
       </div>
+      <div><label class="label">Episode Rating</label><div id="ef-stars" style="display:flex;gap:4px;font-size:20px;"></div></div>
       <div><label class="label">Notes</label><textarea class="input-field" id="ef-notes" rows="2" style="resize:vertical;"></textarea></div>
       <div class="flex-end">
         <button class="btn-ghost" onclick="closeModal('modal-entry')">Cancel</button>
@@ -414,6 +416,15 @@ let _dirty     = false; // local changes pending push
 // ── URL management ────────────────────────────────────────────────────────────
 function getSheetsUrl()  { return _sheetsUrl; }
 function hasSheetsUrl()  { return !!_sheetsUrl; }
+function updateLastSyncLabel(){
+  const el=document.getElementById('last-sync-label'); if(!el) return;
+  const t=localStorage.getItem('sc:lastSync');
+  if(!t){ el.textContent=''; return; }
+  const mins=Math.floor((Date.now()-new Date(t))/60000);
+  el.textContent='synced '+(mins<1?'just now':mins<60?mins+'m ago':mins<1440?Math.floor(mins/60)+'h ago':Math.floor(mins/1440)+'d ago');
+}
+setInterval(updateLastSyncLabel, 60000);
+setTimeout(updateLastSyncLabel, 500);
 
 function setSheetsUrl(url) {
   _sheetsUrl = url.trim();
@@ -474,6 +485,8 @@ async function pullFromSheets(silent=false) {
     localStorage.setItem(SHEETS_LAST_SYNC, new Date().toISOString());
     rerender();
     setSyncStatus('synced');
+    localStorage.setItem('sc:lastSync', new Date().toISOString());
+    updateLastSyncLabel();
     if(!silent) showSyncToast('✓ Synced from Sheets');
   } catch(err) {
     setSyncStatus('error');
@@ -899,10 +912,11 @@ function handleDayClick(day) {
   const rowsHtml = dayE.map(e=>`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);">
       <div>
-        <div style="font-family:'Lora',serif;font-size:13px;color:var(--text);">${esc(e.title)}</div>
+        <div style="font-family:'Lora',serif;font-size:13px;color:var(--text);">${esc(e.title)}${Number(e.rating)>0?` <span style="color:var(--accent, #c9622f);font-size:11px;">${'★'.repeat(Number(e.rating))}</span>`:''}</div>
         <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);margin-top:2px;">
           ${esc(e.platform)}${e.type==='TV Show'&&e.season?` · S${esc(e.season)}`:''}${e.episode?` · E${esc(e.episode)}`:''}${e.episodeTo?`–${esc(e.episodeTo)}`:''}
         </div>
+        ${e.notes?`<div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textMid);font-style:italic;margin-top:3px;">"${esc(e.notes)}"</div>`:''}
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;margin-left:10px;">
         <button class="btn-edit" onclick="document.getElementById('day-popup').remove();openEntryModal('${e.id}')">Edit</button>
@@ -982,6 +996,7 @@ function renderWatching() {
       </div>
       <hr class="divider"/>
       <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn-complete" onclick="logNextEpisode('${o.id}')">▶ +1 Ep</button>
         <button class="btn-complete" onclick="markCompleted('${o.id}')">✓ Mark Season Complete</button>
         <button class="btn-giveup" onclick="markGiveUp('${o.id}')">💔 Give Up</button>
       </div>
@@ -1005,6 +1020,7 @@ function renderWatching() {
         </div>`:`<div style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);margin-top:2px;">Ep ${esc(o.currentEp)||'?'}</div>`}
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;">
+        <button class="btn-complete" style="font-size:10px;padding:3px 8px;" onclick="logNextEpisode('${o.id}')">+1</button>
         <button class="btn-complete" style="font-size:10px;padding:3px 8px;" onclick="markCompleted('${o.id}')">✓</button>
         <button class="btn-giveup" style="font-size:10px;padding:3px 8px;" onclick="markGiveUp('${o.id}')">💔</button>
         <button class="btn-edit" onclick="openOngoingModal('${o.id}')">Edit</button>
@@ -1369,6 +1385,11 @@ function onPickWatching() {
   onSeasonChange();
 }
 
+let _efRating = 0;
+function renderEfStars(){
+  const el=document.getElementById('ef-stars'); if(!el) return;
+  el.innerHTML=[1,2,3,4,5].map(n=>`<button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;padding:0;color:${n<=_efRating?'var(--accent, #c9622f)':'var(--textDim, #b9a893)'};" onclick="_efRating=_efRating===${n}?0:${n};renderEfStars();">${n<=_efRating?'★':'☆'}</button>`).join('');
+}
 function openEntryModal(editId, prefillDate) {
   fillPlatformSelect('ef-platform');
   fillPickWatching();
@@ -1388,6 +1409,7 @@ function openEntryModal(editId, prefillDate) {
     document.getElementById('ef-epto').value = e.episodeTo||'';
     document.getElementById('ef-date').value = toInput(e.date);
     document.getElementById('ef-notes').value = e.notes||'';
+    _efRating = Number(e.rating)||0; renderEfStars();
   } else {
     document.getElementById('ef-title').value = '';
     document.getElementById('ef-type').value = 'TV Show';
@@ -1398,6 +1420,7 @@ function openEntryModal(editId, prefillDate) {
     document.getElementById('ef-epto').value = '';
     document.getElementById('ef-date').value = prefillDate || (selectedDay ? `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}` : todayStr());
     document.getElementById('ef-notes').value = '';
+    _efRating = 0; renderEfStars();
     document.getElementById('ef-epfrom-hint').classList.add('hidden');
   }
   onTypeChange();
@@ -1527,9 +1550,11 @@ function saveEntry() {
     totalEp:   isMovieType ? '' : document.getElementById('ef-totalep').value,
     platform: lockedPlatform,
     date: toISO(document.getElementById('ef-date').value),
-    notes: document.getElementById('ef-notes').value
+    notes: document.getElementById('ef-notes').value,
+    rating: _efRating || ''
   };
 
+  let _ongoingTouched = null;
   if(editId) {
     entries = entries.map(e=>String(e.id)===editId?entry:e);
   } else {
@@ -1540,19 +1565,21 @@ function saveEntry() {
       const alreadyExists = ongoing.some(o => o.title.trim().toLowerCase()===movieKey && o.completedType==='Movie');
       if(!alreadyExists) {
         const movieId = Date.now() + Math.random();
-        ongoing.push({
+        const movieRow = {
           id: movieId, title, platform: lockedPlatform, season: '',
           currentEp: '', totalEp: '', completed: true,
           completedDate: document.getElementById('ef-date').value,
           completedType: 'Movie', notes: '', score: null, review: '',
           givenUp: false, givenUpDate: '', airingStatus: null
-        });
+        };
+        ongoing.push(movieRow);
+        _ongoingTouched = movieRow;
         save('ongoing', ongoing);
         removeFromWishlist(title);
         setTimeout(()=>openReviewModal({id: movieId, title, season: '', isMovie: true}), 300);
       }
     } else {
-      upsertOngoing(title, lockedPlatform, type, season,
+      _ongoingTouched = upsertOngoing(title, lockedPlatform, type, season,
         parseInt(epTo||epFrom||'0')||null,
         document.getElementById('ef-totalep').value,
         document.getElementById('ef-date').value);
@@ -1563,9 +1590,10 @@ function saveEntry() {
   rerender();
   // Push to Sheets
   if(hasSheetsUrl()) pushUpsert('ENTRIES', entry);
-  // Only push new ongoing record if it's a TV Show (not a movie)
-  const ongoingNew = ongoing[ongoing.length-1];
-  if(ongoingNew && !editId && hasSheetsUrl() && ongoingNew.completedType !== 'Movie') pushUpsert('ONGOING', ongoingNew);
+  // Push the Watching row affected by this entry (updated OR newly created)
+  if(!editId && hasSheetsUrl() && _ongoingTouched) {
+    pushUpsert('ONGOING', _ongoingTouched);
+  }
 }
 
 function deleteEntry(id) {
@@ -1609,13 +1637,18 @@ function upsertOngoing(title, platform, type, season, epNum, totalEp, entryDate)
   save('ongoing', ongoing);
   removeFromWishlist(title);
   if(autoComplete) setTimeout(()=>openReviewModal(autoComplete), 300);
+  // Return the affected row so callers can push it to Sheets
+  const rkey = `${title.trim().toLowerCase()}||${season}`;
+  return ongoing.find(o=>`${o.title.trim().toLowerCase()}||${o.season}`===rkey) || null;
 }
 
 function removeFromWishlist(title) {
   const key = title.trim().toLowerCase();
-  const before = wishlist.length;
+  const removed = wishlist.filter(w => w.title.trim().toLowerCase() === key);
+  if(!removed.length) return;
   wishlist = wishlist.filter(w => w.title.trim().toLowerCase() !== key);
-  if(wishlist.length < before) save('wishlist', wishlist);
+  save('wishlist', wishlist);
+  if(hasSheetsUrl()) removed.forEach(w => pushDelete('WISHLIST', w.id));
 }
 
 // ── ONGOING MODAL ─────────────────────────────────────────────────────────────
@@ -1731,12 +1764,17 @@ function saveOngoing() {
     // Cascade title and platform changes to log entries (use old title as lookup key)
     const oldKey = (old.title||'').trim().toLowerCase();
     const oldSeason = String(old.season||'');
+    const cascaded = [];
     entries = entries.map(e=>{
       if(e.title.trim().toLowerCase()!==oldKey) return e;
       if(item.completedType!=='Movie' && String(e.season||'')!==oldSeason) return e;
-      return {...e, title, platform:item.platform};
+      if(e.title===title && e.platform===item.platform) return e; // nothing changed
+      const upd = {...e, title, platform:item.platform};
+      cascaded.push(upd);
+      return upd;
     });
     save('entries', entries);
+    if(hasSheetsUrl()) cascaded.forEach(e=>pushUpsert('ENTRIES', e));
     if(shouldAutoComplete) setTimeout(()=>openReviewModal({id:old.id,title,season:item.season}),200);
   } else {
     const newId = Date.now();
@@ -1760,6 +1798,30 @@ function deleteOngoing(id) {
   save('ongoing', ongoing);
   rerender();
   if(hasSheetsUrl()) pushDelete('ONGOING', delId);
+}
+
+// One-click: log the next episode of a show as watched today
+function logNextEpisode(id) {
+  const o = ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
+  const next = (parseInt(o.currentEp)||0) + 1;
+  const tot = parseInt(o.totalEp)||0;
+  if(tot && next > tot) { showSyncToast('Already at the last episode'); return; }
+  const entry = {
+    id: Date.now(), title: o.title, type: 'TV Show',
+    season: String(o.season||''), episode: String(next), episodeTo: '',
+    totalEp: String(o.totalEp||''), platform: o.platform||'',
+    date: toISO(todayStr()), notes: '', rating: ''
+  };
+  entries.push(entry);
+  save('entries', entries);
+  const touched = upsertOngoing(o.title, o.platform, 'TV Show', o.season, next,
+    o.totalEp, todayStr());
+  rerender();
+  if(hasSheetsUrl()) {
+    pushUpsert('ENTRIES', entry);
+    if(touched) pushUpsert('ONGOING', touched);
+  }
+  showSyncToast('▶ Logged ' + o.title + ' Ep ' + next);
 }
 
 function markCompleted(id) {
