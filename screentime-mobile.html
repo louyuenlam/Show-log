@@ -391,14 +391,17 @@ function normUpcoming(rows){ return (rows||[]).map(u=>({
 // ═══════════════════════════════════════════════════════════════
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot');
-  dot.className=''; dot.classList.add(s==='syncing'?'syncing':s==='error'?'pending':'');
+  dot.className='';
+  if(s==='syncing') dot.classList.add('syncing');
+  else if(s==='error') dot.classList.add('pending');
+  // 'synced'/default: no extra class (green base style)
 }
 
 async function doSync(){
   if(!_sheetsUrl){ showToast('Set Sheets URL in Settings',true); return; }
   setSyncStatus('syncing');
   try{
-    const r=await fetch(_sheetsUrl, { method:'GET', redirect:'follow' });
+    const r=await fetch(_sheetsUrl + '?t=' + Date.now(), { method:'GET', redirect:'follow', cache:'no-store' });
     if(!r.ok) throw new Error('HTTP '+r.status);
     const text=await r.text();
     let d;
