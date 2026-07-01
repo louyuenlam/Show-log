@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v1.3</div>
+      <div id="header-sub">your watch journal · v1.5</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,8 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v1.3 · mobile</div>
+      <div id="drawer-version">v1.5 · mobile</div>
+      <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
       <button class="drawer-item active" onclick="switchTab('watchlog')" data-tab="watchlog"><span class="di-icon">📅</span>Watch Log</button>
@@ -389,6 +390,13 @@ function normUpcoming(rows){ return (rows||[]).map(u=>({
 // ═══════════════════════════════════════════════════════════════
 // SYNC
 // ═══════════════════════════════════════════════════════════════
+function updateLastSyncLabel(){
+  const el=document.getElementById('last-sync-label'); if(!el) return;
+  const t=localStorage.getItem('sc:lastSync');
+  if(!t){ el.textContent='Never synced'; return; }
+  const mins=Math.floor((Date.now()-new Date(t))/60000);
+  el.textContent='Last synced '+(mins<1?'just now':mins<60?mins+' min ago':mins<1440?Math.floor(mins/60)+'h ago':Math.floor(mins/1440)+'d ago');
+}
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot');
   dot.className='';
@@ -414,6 +422,8 @@ async function doSync(){
     upcoming = normUpcoming(d.upcoming||[]);
     saveCache();
     setSyncStatus('synced');
+    localStorage.setItem('sc:lastSync', new Date().toISOString());
+    updateLastSyncLabel();
     showToast('✓ Synced '+entries.length+' entries');
     rerender();
   }catch(e){
@@ -439,6 +449,7 @@ async function pushDelete(sheet, id){
 let _currentTab = 'watchlog';
 
 function openDrawer(){
+  updateLastSyncLabel();
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawer-overlay').classList.add('open');
 }
@@ -540,8 +551,9 @@ function renderCalDetail(ymd){
       const sub=[e.platform,e.season?'S'+e.season:'',ep].filter(Boolean).join(' · ');
       return `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <div style="font-weight:600;font-size:14px;">${esc(e.title)}</div>
+          <div style="font-weight:600;font-size:14px;">${esc(e.title)}${Number(e.rating)>0?` <span style="color:var(--accent);font-size:12px;">${'★'.repeat(Number(e.rating))}</span>`:''}</div>
           <div style="font-size:12px;color:var(--ink-dim);">${esc(sub)}</div>
+          ${e.notes?`<div style="font-size:12px;color:var(--ink-soft);font-style:italic;margin-top:3px;">"${esc(e.notes)}"</div>`:''}
           ${e.rating?`<div style="font-size:11px;color:var(--accent);">${starsDisplay5(Number(e.rating))}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -555,19 +567,36 @@ function renderCalDetail(ymd){
 // ═══════════════════════════════════════════════════════════════
 // WATCHING TAB
 // ═══════════════════════════════════════════════════════════════
+function lastLoggedDate(title,season){
+  const key=String(title||'').trim().toLowerCase();
+  let last='';
+  for(const e of entries){
+    if(String(e.title||'').trim().toLowerCase()!==key) continue;
+    if(String(e.season||'')!==String(season||'')) continue;
+    const d=toYMD(e.date); if(d>last) last=d;
+  }
+  return last;
+}
 function renderWatching(){
   const q=(document.getElementById('search-watching')?.value||'').toLowerCase();
   const active=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie');
   const filtered=q?active.filter(o=>o.title.toLowerCase().includes(q)):active;
   const el=document.getElementById('watching-list');
   if(!filtered.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">📺</div><div class="empty-text">Nothing here yet.</div></div>`; return; }
-  el.innerHTML=filtered.map(o=>{
+  // Most recently watched first; stalled shows sink
+  const withLast=filtered.map(o=>({o,last:lastLoggedDate(o.title,o.season)}));
+  withLast.sort((a,b)=>String(b.last).localeCompare(String(a.last)));
+  const now=new Date();
+  el.innerHTML=withLast.map(({o,last})=>{
     const cur=parseInt(o.currentEp)||0, tot=parseInt(o.totalEp)||0;
     const pct=tot>0?Math.min(100,Math.round(cur/tot*100)):0;
+    const days=last?Math.floor((now-new Date(last+'T12:00:00'))/86400000):null;
+    const stalled=days!==null&&days>60?`<span style="font-size:10px;background:var(--line);border-radius:999px;padding:2px 8px;margin-left:6px;color:var(--ink-dim);">💤 ${days>=365?Math.floor(days/365)+'y':Math.floor(days/30)+'mo'} ago</span>`:'';
+    const canPlusOne=!tot||cur<tot;
     return `<div class="show-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="flex:1;min-width:0;">
-          <div class="show-card-title">${esc(o.title)}</div>
+          <div class="show-card-title">${esc(o.title)}${stalled}</div>
           <div class="show-card-meta">${esc([o.platform,o.season?'S'+o.season:''].filter(Boolean).join(' · '))}</div>
           ${tot>0?`<div style="font-size:11px;color:var(--ink-dim);margin-top:2px;">Ep ${cur}/${tot}</div>`:''}
           ${tot>0?`<div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>`:''}
@@ -575,9 +604,10 @@ function renderWatching(){
         <div style="flex-shrink:0;">${typeBadge(o.completedType)}</div>
       </div>
       <div class="show-card-actions">
+        ${canPlusOne?`<button class="btn btn-sm btn-primary" onclick="logNextEp('${o.id}')">+1 Ep</button>`:''}
+        <button class="btn btn-sm btn-secondary" onclick="quickComplete('${o.id}')">✓ Complete</button>
         <button class="btn btn-sm btn-secondary" onclick="openOngoingModal('${o.id}')">Edit</button>
-        <button class="btn btn-sm btn-primary" onclick="quickComplete('${o.id}')">✓ Complete</button>
-        <button class="btn btn-sm btn-ghost" onclick="quickGiveUp('${o.id}')">💔 Give Up</button>
+        <button class="btn btn-sm btn-ghost" onclick="quickGiveUp('${o.id}')">💔</button>
       </div>
     </div>`;
   }).join('');
@@ -735,7 +765,7 @@ function renderUpcoming(){
   const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate&&o.totalEp);
   const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate&&u.totalEp);
 
-  function airingCard(title,season,platform,airDay,firstAirDate,totalEp,currentEp){
+  function airingCard(title,season,platform,airDay,firstAirDate,totalEp,currentEp,ongId){
     const tot=parseInt(totalEp)||0, start=Math.max(1,parseInt(currentEp||0)+1);
     let rows='';
     for(let ep=start;ep<=tot;ep++){
@@ -747,16 +777,26 @@ function renderUpcoming(){
         <span style="color:${past?'var(--ink-dim)':'var(--green)'};font-weight:600;">${past?'Aired':istoday?'🎉 Today':'in '+days+'d'}</span>
       </div>`;
     }
+    // If the next unwatched episode has already aired, offer a one-tap log
+    let logBtn='';
+    if(ongId){
+      const nextEp=Math.max(1,parseInt(currentEp||0)+1);
+      const nd=epDateCalc(firstAirDate,airDay,nextEp);
+      if(nd&&nd<=today&&(!tot||nextEp<=tot)){
+        logBtn=`<button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="logNextEp('${ongId}')">▶ Log Ep ${nextEp}</button>`;
+      }
+    }
     return `<div class="show-card" style="margin-bottom:10px;">
       <div class="show-card-title">${esc(title)}${season?' S'+esc(season):''}</div>
       <div class="show-card-meta">${esc(platform||'')} · Airs every ${DAYS_F[airDay]}</div>
       <div style="margin-top:8px;">${rows||'<div style="font-size:12px;color:var(--ink-dim);">No upcoming episodes.</div>'}</div>
+      ${logBtn}
     </div>`;
   }
 
   const airingHtml=[
-    ...airingOngoing.map(o=>airingCard(o.title,o.season,o.platform,Number(o.airDay),o.firstAirDate,o.totalEp,o.currentEp||0)),
-    ...airingUpcoming.map(u=>airingCard(u.title,u.season,u.platform,Number(u.airDay),u.firstAirDate,u.totalEp,0))
+    ...airingOngoing.map(o=>airingCard(o.title,o.season,o.platform,Number(o.airDay),o.firstAirDate,o.totalEp,o.currentEp||0,String(o.id))),
+    ...airingUpcoming.map(u=>airingCard(u.title,u.season,u.platform,Number(u.airDay),u.firstAirDate,u.totalEp,0,null))
   ].join('')||'<div class="empty"><div class="empty-text">No airing schedules set up yet.</div></div>';
 
   document.getElementById('upcoming-content').innerHTML=`
@@ -794,6 +834,24 @@ function renderStats(){
   const topTitles=Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxTitle=topTitles[0]?.[1]||1;
 
+  // Fun facts: biggest binge (most eps of one show in one day), busiest month
+  let binge={n:0,title:'',date:''};
+  const dayShow={};
+  entries.forEach(e=>{
+    if(e.type==='Movie') return;
+    const eps=Math.max(1,(Number(e.episodeTo)||Number(e.episode)||1)-(Number(e.episode)||1)+1);
+    const k=toYMD(e.date)+'||'+e.title;
+    dayShow[k]=(dayShow[k]||0)+eps;
+    if(dayShow[k]>binge.n) binge={n:dayShow[k],title:e.title,date:toYMD(e.date)};
+  });
+  const monthCount={};
+  entries.forEach(e=>{ const m=toYMD(e.date).slice(0,7); if(m) monthCount[m]=(monthCount[m]||0)+1; });
+  const busiest=Object.entries(monthCount).sort((a,b)=>b[1]-a[1])[0];
+  const MONTHS_L=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const busiestLabel=busiest?MONTHS_L[Number(busiest[0].slice(5,7))-1]+' '+busiest[0].slice(0,4):'—';
+  const ratedEps=entries.filter(e=>Number(e.rating)>0);
+  const avgEpRating=ratedEps.length?ratedEps.reduce((a,e)=>a+Number(e.rating),0)/ratedEps.length:0;
+
   function bar(label,val,max,color='var(--accent)'){
     return `<div class="bar-row"><div class="bar-label" title="${esc(label)}">${esc(label)}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${Math.round(val/max*100)}%;background:${color};"></div></div>
@@ -814,9 +872,17 @@ function renderStats(){
       <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:10px;">📱 By Platform</div>
       ${platSorted.map(([p,v])=>bar(p,v,maxPlat)).join('')||'<div style="color:var(--ink-dim);font-size:13px;">No data yet.</div>'}
     </div>
-    <div class="stat-card">
+    <div class="stat-card" style="margin-bottom:10px;">
       <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:10px;">📝 Most Logged</div>
       ${topTitles.map(([t,v])=>bar(t,v,maxTitle,'var(--green)')).join('')||'<div style="color:var(--ink-dim);font-size:13px;">No data yet.</div>'}
+    </div>
+    <div class="stat-card">
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:10px;">✨ Fun Facts</div>
+      <div style="font-size:13px;line-height:1.9;color:var(--ink-soft);">
+        ${binge.n>1?`🍿 Biggest binge: <b>${binge.n} eps</b> of ${esc(binge.title)} (${binge.date})<br>`:''}
+        📅 Busiest month: <b>${busiestLabel}</b>${busiest?' — '+busiest[1]+' entries':''}<br>
+        ${ratedEps.length?`⭐ Avg episode rating: <b>${avgEpRating.toFixed(1)}/5</b> (${ratedEps.length} rated)`:'⭐ No episode ratings yet — try the ★ when logging!'}
+      </div>
     </div>
   `;
 }
@@ -838,7 +904,13 @@ function handleOverlayClick(e){
 }
 
 function platOpts(sel=''){
-  return PLATFORMS.map(p=>`<option value="${p}"${sel===p?' selected':''}>${p||'— Select —'}</option>`).join('');
+  const freq={};
+  entries.forEach(e=>{ if(e.platform) freq[e.platform]=(freq[e.platform]||0)+1; });
+  const sorted=[...PLATFORMS].sort((a,b)=>{
+    if(a==='')return -1; if(b==='')return 1;
+    return (freq[b]||0)-(freq[a]||0);
+  });
+  return sorted.map(p=>`<option value="${p}"${sel===p?' selected':''}>${p||'— Select —'}</option>`).join('');
 }
 function typeOpts(sel='TV Show'){
   return ['TV Show','Movie'].map(t=>`<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('');
@@ -888,6 +960,7 @@ function buildEntryModal(e){
   `);
   entTypeChange();
   document.getElementById('modal-actions').innerHTML=`
+    <button class="btn btn-secondary" style="flex:1;" onclick="saveEntry(true)">Save +</button>
     <button class="btn btn-primary" style="flex:1;" onclick="saveEntry()">Save</button>
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
   `;
@@ -908,6 +981,14 @@ function setEntryRating(n){
     b.textContent=filled?'★':'☆';
     b.classList.toggle('on',filled);
   });
+}
+
+function removeFromWishlistByTitle(title){
+  const key=String(title||'').trim().toLowerCase();
+  const removed=wishlist.filter(w=>String(w.title||'').trim().toLowerCase()===key);
+  if(!removed.length) return;
+  wishlist=wishlist.filter(w=>String(w.title||'').trim().toLowerCase()!==key);
+  removed.forEach(w=>pushDelete('WISHLIST',w.id));
 }
 
 function updateOngoingFromEntry(entry){
@@ -934,6 +1015,9 @@ function updateOngoingFromEntry(entry){
     if(epMax>(Number(o.currentEp)||0)){
       const u={...o,currentEp:String(epMax)};
       if(entry.totalEp&&!o.totalEp) u.totalEp=String(entry.totalEp);
+      const tot=Number(u.totalEp)||0;
+      if(tot>0&&epMax>=tot&&!u.completed){ u.completed=true; u.completedDate=entry.date||todayYMD(); u.airingStatus='';
+        setTimeout(()=>openReviewSheet(u.id),400); }
       ongoing=ongoing.map(x=>String(x.id)===String(o.id)?u:x); pushUpsert('ONGOING',u);
     }
   } else if(!ongoing.some(x=>key(x.title)===key(entry.title)&&String(x.season)===String(entry.season))){
@@ -957,7 +1041,7 @@ function pickWatching(id){
   document.getElementById('en-epto').value='';
 }
 
-function saveEntry(){
+function saveEntry(addAnother){
   const title=document.getElementById('en-title').value.trim();
   if(!title){ showToast('Title required',true); return; }
   const type=document.getElementById('en-type').value;
@@ -977,8 +1061,10 @@ function saveEntry(){
   if(_editEntryId){ entries=entries.map(e=>String(e.id)===String(_editEntryId)?entry:e); }
   else{ entries.push(entry); }
   updateOngoingFromEntry(entry);
+  removeFromWishlistByTitle(entry.title);
   saveCache(); pushUpsert('ENTRIES',entry);
-  closeModal(); showToast('✓ Saved');
+  if(addAnother===true){ showToast('✓ Saved — add another'); _editEntryId=null; _entryRating=0; buildEntryModal(null); }
+  else { closeModal(); showToast('✓ Saved'); }
   if(_currentTab==='watchlog') renderWatchLog();
 }
 
@@ -1098,6 +1184,80 @@ function saveOngoing(){
   closeModal(); showToast('✓ Saved'); rerender();
 }
 
+// One-tap: log the next episode of a Watching show as watched today
+function logNextEp(id){
+  const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
+  const next=(Number(o.currentEp)||0)+1;
+  const tot=Number(o.totalEp)||0;
+  if(tot&&next>tot){ showToast('Already at the last episode'); return; }
+  const entry={ id:Date.now(), title:o.title, type:'TV Show', platform:o.platform||'',
+    season:String(o.season||''), episode:String(next), episodeTo:'', totalEp:String(o.totalEp||''),
+    date:todayYMD(), notes:'', rating:'' };
+  entries.push(entry);
+  updateOngoingFromEntry(entry);
+  saveCache(); pushUpsert('ENTRIES',entry);
+  rerender();
+  openEpRateSheet(entry.id, o.title, next, (tot&&next>=tot));
+}
+
+// Small sheet to rate the episode just logged (skippable)
+let _epRateId=null, _epRateVal=0;
+function openEpRateSheet(entryId, title, ep, wasFinale){
+  _epRateId=entryId; _epRateVal=0;
+  openModal('✓ Logged Ep '+ep,
+    `<div style="padding:6px 0 2px;">
+      <div style="text-align:center;font-size:14px;color:var(--ink-soft);margin-bottom:10px;">${esc(title)} — rate this episode?</div>
+      <div class="stars-row" id="eprate-stars" style="justify-content:center;">${[1,2,3,4,5].map(n=>`<button class="star-btn" onclick="setEpRate(${n})">☆</button>`).join('')}</div>
+      <div class="field" style="margin-top:12px;"><label>Thoughts (optional)</label>
+        <textarea id="eprate-notes" rows="3" placeholder="Anything this episode made you feel?"></textarea></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Skip</button>
+     <button class="btn btn-primary" onclick="saveEpRate()">Save</button>`);
+}
+function setEpRate(n){
+  _epRateVal=_epRateVal===n?0:n;
+  document.querySelectorAll('#eprate-stars .star-btn').forEach((b,i)=>{
+    const f=i+1<=_epRateVal; b.textContent=f?'★':'☆'; b.classList.toggle('on',f);
+  });
+}
+function saveEpRate(){
+  const note=(document.getElementById('eprate-notes')?.value||'').trim();
+  if(_epRateId&&(_epRateVal||note)){
+    const e=entries.find(x=>String(x.id)===String(_epRateId));
+    if(e){
+      if(_epRateVal) e.rating=_epRateVal;
+      if(note) e.notes=note;
+      saveCache(); pushUpsert('ENTRIES',e);
+    }
+  }
+  closeModal(); _epRateId=null;
+}
+
+// Completion review sheet (score /10 + review text)
+let _reviewOngId=null, _reviewScore=0;
+function openReviewSheet(ongId){
+  const o=ongoing.find(x=>String(x.id)===String(ongId)); if(!o) return;
+  _reviewOngId=ongId; _reviewScore=Number(o.score)||0;
+  openModal('🎉 Finished!',
+    `<div style="text-align:center;font-size:14px;color:var(--ink-soft);margin-bottom:10px;">${esc(o.title)}${o.season?' S'+esc(String(o.season)):''} — how was it?</div>
+     <div class="stars-row" id="rev-stars" style="justify-content:center;flex-wrap:wrap;">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="star-btn${n<=_reviewScore?' on':''}" onclick="setRevScore(${n})">${n<=_reviewScore?'★':'☆'}</button>`).join('')}</div>
+     <div class="field" style="margin-top:12px;"><label>Review (optional)</label><textarea id="rev-text" rows="3" placeholder="What did you think?">${esc(o.review||'')}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Later</button>
+     <button class="btn btn-primary" onclick="saveReviewSheet()">Save</button>`);
+}
+function setRevScore(n){
+  _reviewScore=_reviewScore===n?0:n;
+  document.querySelectorAll('#rev-stars .star-btn').forEach((b,i)=>{
+    const f=i+1<=_reviewScore; b.textContent=f?'★':'☆'; b.classList.toggle('on',f);
+  });
+}
+function saveReviewSheet(){
+  const o=ongoing.find(x=>String(x.id)===String(_reviewOngId));
+  if(o){ o.score=_reviewScore||null; o.review=document.getElementById('rev-text').value;
+    saveCache(); pushUpsert('ONGOING',o); }
+  closeModal(); _reviewOngId=null; rerender();
+}
+
 function quickComplete(id){
   const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
   const updated={...o,completed:true,completedDate:todayYMD(),
@@ -1105,6 +1265,7 @@ function quickComplete(id){
   ongoing=ongoing.map(x=>String(x.id)===String(id)?updated:x);
   saveCache(); pushUpsert('ONGOING',updated);
   showToast('✓ Marked complete'); rerender();
+  setTimeout(()=>openReviewSheet(updated.id),300);
 }
 function quickGiveUp(id){
   const reason=prompt('Reason for giving up? (optional)');
@@ -1300,6 +1461,7 @@ function saveSettings(){
 // INIT
 // ═══════════════════════════════════════════════════════════════
 loadCache();
+updateLastSyncLabel();
 renderWatchLog();
 
 // Add Settings to drawer
