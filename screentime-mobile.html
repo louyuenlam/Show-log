@@ -302,7 +302,7 @@ const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_F    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 let entries = [], ongoing = [], wishlist = [], upcoming = [];
-let _sheetsUrl = localStorage.getItem(SHEETS_URL) || '';
+let _sheetsUrl = localStorage.getItem(SHEETS_URL) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
 
 // Calendar state
 let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
@@ -398,19 +398,24 @@ async function doSync(){
   if(!_sheetsUrl){ showToast('Set Sheets URL in Settings',true); return; }
   setSyncStatus('syncing');
   try{
-    const r=await fetch(_sheetsUrl);
-    const d=await r.json();
-    entries  = normEntries(d.entries);
-    ongoing  = normOngoing(d.ongoing);
-    wishlist = normWishlist(d.wishlist);
+    const r=await fetch(_sheetsUrl, { method:'GET', redirect:'follow' });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const text=await r.text();
+    let d;
+    try{ d=JSON.parse(text); }
+    catch(parseErr){ throw new Error('Bad response: '+text.slice(0,60)); }
+    if(d.error) throw new Error(d.error);
+    entries  = normEntries(d.entries||[]);
+    ongoing  = normOngoing(d.ongoing||[]);
+    wishlist = normWishlist(d.wishlist||[]);
     upcoming = normUpcoming(d.upcoming||[]);
     saveCache();
     setSyncStatus('synced');
-    showToast('✓ Synced');
+    showToast('✓ Synced '+entries.length+' entries');
     rerender();
   }catch(e){
     setSyncStatus('error');
-    showToast('⚠ Sync failed',true);
+    showToast('⚠ '+(e.message||'Sync failed'),true);
   }
 }
 
