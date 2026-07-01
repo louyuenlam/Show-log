@@ -780,7 +780,21 @@ function renderTab(idx) {
   else if(idx===5) renderStats();
   else if(idx===6) renderUpcoming();
 }
-function rerender() { updateStats(); renderTab(currentTab); }
+function rerender() { autoMergeUpcoming(); updateStats(); renderTab(currentTab); }
+
+// Auto-remove Upcoming entries once the same title+season is being watched
+function autoMergeUpcoming() {
+  if(!upcoming.length) return;
+  const key = t => String(t||'').trim().toLowerCase();
+  const merged = upcoming.filter(u =>
+    ongoing.some(o => key(o.title)===key(u.title) && String(o.season||'')===String(u.season||'') && !o.givenUp)
+  );
+  if(!merged.length) return;
+  upcoming = upcoming.filter(u => !merged.includes(u));
+  localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
+  merged.forEach(u => pushDelete('UPCOMING', u.id));
+  showSyncToast('🔮→📺 ' + merged.map(u=>u.title).join(', ') + ' moved to Watching');
+}
 
 // ── Platform dropdowns ─────────────────────────────────────────────────────────
 function fillPlatformSelect(id, includeUnknown=false) {
