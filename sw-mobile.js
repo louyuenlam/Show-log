@@ -1,5 +1,7 @@
-// Service Worker for Screentime mobile app
-const CACHE = 'screentime-mobile-v1';
+// Service Worker for Screentime mobile app — v2
+// Network-first for the app shell so updates apply automatically;
+// cache is only a fallback when offline.
+const CACHE = 'screentime-mobile-v2';
 const ASSETS = ['./screentime-mobile.html', './icon.png'];
 
 self.addEventListener('install', e => {
@@ -15,15 +17,16 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Never cache Apps Script API calls — always go to network
+  // Never touch Apps Script API calls — always straight to network
   if (e.request.url.includes('script.google.com')) return;
+  if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
+
+  // Network-first: fetch fresh, update cache, fall back to cache offline
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
-      if (e.request.method === 'GET' && e.request.url.startsWith(self.location.origin)) {
-        const clone = resp.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-      }
+    fetch(e.request).then(resp => {
+      const clone = resp.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
       return resp;
-    }).catch(() => cached))
+    }).catch(() => caches.match(e.request))
   );
 });
