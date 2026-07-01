@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v1.2</div>
+      <div id="header-sub">your watch journal · v1.3</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v1.2 · mobile</div>
+      <div id="drawer-version">v1.3 · mobile</div>
     </div>
     <div class="drawer-nav">
       <button class="drawer-item active" onclick="switchTab('watchlog')" data-tab="watchlog"><span class="di-icon">📅</span>Watch Log</button>
@@ -858,6 +858,13 @@ function openEditEntryModal(id){
 function buildEntryModal(e){
   const today=todayYMD();
   openModal(e?'Edit Entry':'Add Entry',`
+    ${(!e && ongoing.some(o=>!o.completed&&!o.givenUp)) ? `<div class="field"><label>Currently Watching — tap to fill</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${ongoing.filter(o=>!o.completed&&!o.givenUp)
+          .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))
+          .slice(0,12)
+          .map(o=>`<button type="button" onclick="pickWatching('${String(o.id)}')" style="background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;font-family:inherit;color:var(--ink);">${esc(o.title)}${o.season?' S'+esc(String(o.season)):''}</button>`).join('')}
+      </div></div>` : ''}
     <div class="field"><label>Title</label><input id="en-title" value="${esc(e?.title||'')}" placeholder="Show or movie title"/></div>
     <div class="grid-2">
       <div class="field"><label>Type</label><select id="en-type" onchange="entTypeChange()">${typeOpts(e?.type)}</select></div>
@@ -935,6 +942,19 @@ function updateOngoingFromEntry(entry){
       completed:false,completedDate:'',givenUp:false,givenUpDate:'',givenUpReason:'',score:null,review:'',notes:'',posterUrl:'',airDay:'',firstAirDate:''};
     ongoing.push(item); pushUpsert('ONGOING',item);
   }
+}
+
+function pickWatching(id){
+  const o=ongoing.find(x=>String(x.id)===String(id)); if(!o) return;
+  document.getElementById('en-title').value=o.title;
+  document.getElementById('en-type').value='TV Show'; entTypeChange();
+  const plat=document.getElementById('en-platform');
+  if([...plat.options].some(op=>op.value===o.platform)) plat.value=o.platform;
+  document.getElementById('en-season').value=o.season||'';
+  document.getElementById('en-totalep').value=o.totalEp||'';
+  const next=(Number(o.currentEp)||0)+1;
+  document.getElementById('en-epfrom').value=next;
+  document.getElementById('en-epto').value='';
 }
 
 function saveEntry(){
