@@ -21,6 +21,8 @@ body{background:var(--bg);color:var(--text);font-family:'Lora',Georgia,serif;min
 ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:#d4603a44;border-radius:2px;}
 input,select,textarea{font-family:'DM Sans',sans-serif;}
 button{cursor:pointer;}
+.menu-item{display:block;width:100%;text-align:left;background:none;border:none;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);padding:8px 12px;border-radius:6px;}
+.menu-item:hover{background:var(--bgInput,#fdf6ee);}
 
 /* Tabs */
 .tab-btn{background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.04em;color:#b08060;transition:all .2s;}
@@ -137,24 +139,36 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.1 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.2 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
-      <div id="save-indicator"><span class="saved-dot">●</span>Saved</div>
-      <button class="header-btn-file" onclick="clearAllData()" style="color:#c05a35;border-color:#f0c0b0;cursor:pointer;">🗑️ Clear Data</button>
-      <label class="header-btn-file" style="cursor:pointer;">
-        📂 Import Excel
-        <input type="file" id="import-input" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(this)"/>
-      </label>
-      <button class="header-btn-save" onclick="exportExcel()">💾 Export Excel</button>
-      <button class="header-btn-file" onclick="openSyncSettings()" title="Sync Settings" style="cursor:pointer;display:flex;align-items:center;gap:5px;">
-        <span id="sync-status-dot" style="width:8px;height:8px;border-radius:50%;background:#a08070;display:inline-block;"></span>
-        <span id="sync-status-lbl">Local</span>
-      </button>
-      <button class="header-btn-file" id="sheets-sync-btn" onclick="hasSheetsUrl()?pullFromSheets(false):openSyncSettings()" style="cursor:pointer;">☁️ Sync</button>
-      <button class="header-btn-file" onclick="pushAllToSheets()" title="Push everything on this device up to Google Sheets" style="cursor:pointer;">⬆️ Push All</button>
-      <span id="last-sync-label" style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);"></span>
+      <div id="save-indicator" style="display:none;"><span class="saved-dot">●</span>Saved</div>
+
+      <!-- Primary: one sync button with status dot + last-synced underneath -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+        <button class="header-btn-save" id="sheets-sync-btn" onclick="hasSheetsUrl()?pullFromSheets(false):openSyncSettings()" style="cursor:pointer;display:flex;align-items:center;gap:6px;">
+          <span id="sync-status-dot" style="width:8px;height:8px;border-radius:50%;background:#fff;display:inline-block;"></span>
+          ☁️ Sync
+        </button>
+        <span id="last-sync-label" style="font-family:'DM Sans',sans-serif;font-size:9px;color:var(--textDim);"></span>
+      </div>
+
+      <!-- Everything else folds into one menu -->
+      <div style="position:relative;">
+        <button class="header-btn-file" onclick="const m=document.getElementById('header-menu');m.style.display=m.style.display==='none'?'block':'none';event.stopPropagation();" style="cursor:pointer;">⋯ More</button>
+        <div id="header-menu" style="display:none;position:absolute;right:0;top:110%;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:6px;z-index:50;min-width:180px;">
+          <button class="menu-item" onclick="pushAllToSheets();document.getElementById('header-menu').style.display='none';">⬆️ Push All to Sheets</button>
+          <button class="menu-item" onclick="openSyncSettings();document.getElementById('header-menu').style.display='none';">⚙️ Sync Settings <span id="sync-status-lbl" style="font-size:9px;color:var(--textDim);"></span></button>
+          <div style="border-top:1px solid var(--border);margin:5px 0;"></div>
+          <label class="menu-item" style="cursor:pointer;display:block;">📂 Import Excel
+            <input type="file" id="import-input" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(this)"/>
+          </label>
+          <button class="menu-item" onclick="exportExcel();document.getElementById('header-menu').style.display='none';">💾 Export Excel</button>
+          <div style="border-top:1px solid var(--border);margin:5px 0;"></div>
+          <button class="menu-item" onclick="clearAllData();" style="color:#c05a35;">🗑️ Clear Data</button>
+        </div>
+      </div>
     </div>
   </div>
   <p id="stats-bar" style="display:none;"></p>
@@ -445,6 +459,10 @@ function updateLastSyncLabel(){
   el.textContent='synced '+(mins<1?'just now':mins<60?mins+'m ago':mins<1440?Math.floor(mins/60)+'h ago':Math.floor(mins/1440)+'d ago');
 }
 setInterval(updateLastSyncLabel, 60000);
+document.addEventListener('click', e => {
+  const m = document.getElementById('header-menu');
+  if(m && m.style.display !== 'none' && !e.target.closest('#header-menu') && !e.target.closest('[onclick*="header-menu"]')) m.style.display = 'none';
+});
 setTimeout(updateLastSyncLabel, 500);
 
 function setSheetsUrl(url) {
