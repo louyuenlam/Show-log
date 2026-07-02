@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.0</div>
+      <div id="header-sub">your watch journal · v2.1</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.0 · mobile</div>
+      <div id="drawer-version">v2.1 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -216,6 +216,7 @@ button{font-family:inherit;cursor:pointer;}
       <button class="drawer-item" onclick="switchTab('stats')" data-tab="stats"><span class="di-icon">📊</span>Stats</button>
       <div class="drawer-divider"></div>
       <button class="drawer-item" onclick="doSync();closeDrawer();"><span class="di-icon">☁️</span>Sync Now</button>
+      <button class="drawer-item" onclick="pushAllToSheets();closeDrawer();"><span class="di-icon">⬆️</span>Push All to Sheets</button>
     </div>
   </div>
 
@@ -302,7 +303,7 @@ const MONTHS_S  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','
 const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_F    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 let _upCalM=new Date().getMonth(), _upCalY=new Date().getFullYear();
-let _upView='cal', _upShowReleased=false;
+let _upView='cal', _upShowReleased=false, _calFilter='all';
 
 let entries = [], ongoing = [], wishlist = [], upcoming = [];
 let _sheetsUrl = localStorage.getItem(SHEETS_URL) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
@@ -386,12 +387,34 @@ function normUpcoming(rows){ return (rows||[]).map(u=>({
   platform:String(u.platform||''), season:String(u.season||''),
   releaseDate:toYMD(u.releaseDate)||'', releaseYear:String(u.releaseYear||''),
   airDay:u.airDay!==undefined&&u.airDay!==''?Number(u.airDay):'',
-  firstAirDate:toYMD(u.firstAirDate)||'', totalEp:String(u.totalEp||''), notes:String(u.notes||'')
+  firstAirDate:toYMD(u.firstAirDate)||'', totalEp:String(u.totalEp||''),
+  epsPerWeek:String(u.epsPerWeek||'1'), notes:String(u.notes||'')
 })).filter(u=>u.title); }
 
 // ═══════════════════════════════════════════════════════════════
 // SYNC
 // ═══════════════════════════════════════════════════════════════
+// Push everything on this device up to Google Sheets (upsert, no deletes)
+async function pushAllToSheets(){
+  if(!_sheetsUrl){ showToast('Set your Sheets URL in Settings first',true); return; }
+  setSyncStatus('syncing'); showToast('⬆ Pushing all data…');
+  const jobs=[['ENTRIES',entries],['ONGOING',ongoing],['WISHLIST',wishlist],['UPCOMING',upcoming]];
+  let total=0;
+  try{
+    for(const [sheet,data] of jobs){
+      if(!data.length) continue;
+      const r=await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'batchUpsert',sheet,data}),headers:{'Content-Type':'text/plain'}});
+      if(!r.ok) throw new Error(sheet+' HTTP '+r.status);
+      total+=data.length;
+    }
+    localStorage.setItem('sc:lastSync',new Date().toISOString());
+    updateLastSyncLabel(); setSyncStatus('synced');
+    showToast('✓ Pushed '+total+' records to Sheets');
+  }catch(err){
+    setSyncStatus('error'); showToast('⚠ Push failed: '+(err.message||'unknown'),true);
+  }
+}
+
 function updateLastSyncLabel(){
   const el=document.getElementById('last-sync-label'); if(!el) return;
   const t=localStorage.getItem('sc:lastSync');
@@ -727,12 +750,13 @@ function renderWishlist(){
 // ═══════════════════════════════════════════════════════════════
 // UPCOMING TAB
 // ═══════════════════════════════════════════════════════════════
-function epDateCalc(firstAirDate,airDay,epNum){
+function epDateCalc(firstAirDate,airDay,epNum,epsPerWeek){
   if(!firstAirDate||airDay==='') return null;
+  const epw=Math.max(1,parseInt(epsPerWeek)||1);
   const base=new Date(firstAirDate+'T12:00:00');
   const diff=((airDay-base.getDay())+7)%7;
   const ep1=new Date(base); ep1.setDate(ep1.getDate()+diff);
-  const tgt=new Date(ep1); tgt.setDate(ep1.getDate()+(epNum-1)*7);
+  const tgt=new Date(ep1); tgt.setDate(ep1.getDate()+Math.floor((epNum-1)/epw)*7);
   return tgt.getFullYear()+'-'+String(tgt.getMonth()+1).padStart(2,'0')+'-'+String(tgt.getDate()).padStart(2,'0');
 }
 
@@ -817,15 +841,23 @@ function renderUpcoming(){
       const tot=parseInt(sh.totalEp)||0; if(!tot) return;
       const start=Math.max(1,parseInt(sh.currentEp||0)+1);
       for(let ep=start;ep<=tot;ep++){
-        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep); if(!d) continue;
+        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep,sh.epsPerWeek); if(!d) continue;
         (calMap[d]=calMap[d]||[]).push({title:sh.title,ep,isRelease:false});
       }
     });
-    // Release-day drops
+    // Release-day drops (skip entries already shown as weekly schedules)
     upcoming.forEach(u=>{
+      if(u.airDay!==''&&u.firstAirDate&&u.totalEp) return;
       const d=toYMD(u.releaseDate); if(!d) return;
       (calMap[d]=calMap[d]||[]).push({title:u.title,type:u.type,platform:u.platform,isRelease:true});
     });
+    // View filter
+    if(_calFilter!=='all'){
+      for(const d in calMap){
+        calMap[d]=calMap[d].filter(ev=>_calFilter==='weekly'?!ev.isRelease:ev.isRelease);
+        if(!calMap[d].length) delete calMap[d];
+      }
+    }
     const y=_upCalY,m=_upCalM;
     const firstDay=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate();
     const MONTHS_N=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -835,7 +867,7 @@ function renderUpcoming(){
       const ymd=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
       const evs=calMap[ymd]||[];
       const isToday=ymd===today, isPast=ymd<today;
-      cells+=`<div style="min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};background:${isToday?'#fbe9df':isPast?'#faf6ee':'#fff'};">
+      cells+=`<div onclick="openUpcomingModal(null,'${ymd}')" style="cursor:pointer;min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};background:${isToday?'#fbe9df':isPast?'#faf6ee':'#fff'};">
         <div style="font-size:10px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--ink-dim)':'var(--ink)'};">${d}</div>
         ${evs.map(ev=>{
           if(!ev.isRelease) return `<div style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} E${ev.ep}</div>`;
@@ -846,7 +878,9 @@ function renderUpcoming(){
         }).join('')}
       </div>`;
     }
+    const fPill=(v,l)=>`<button class="pill${_calFilter===v?' active':''}" onclick="event.stopPropagation();_calFilter='${v}';renderUpcoming();">${l}</button>`;
     return `
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">${fPill('all','All')}${fPill('weekly','📡 Weekly')}${fPill('releases','🎬 Releases')}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <button class="btn btn-sm btn-secondary" onclick="_upCalM--;if(_upCalM<0){_upCalM=11;_upCalY--;}renderUpcoming();">‹</button>
         <div style="flex:1;text-align:center;font-family:'Fraunces',serif;font-size:14px;font-weight:700;">${MONTHS_N[m]} ${y}</div>
@@ -856,7 +890,8 @@ function renderUpcoming(){
         ${['S','M','T','W','T','F','S'].map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:var(--ink-dim);">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cells}</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <div style="font-size:9px;color:var(--ink-dim);margin-top:6px;">💡 Tap any day to add an entry</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
         ${[['var(--accent)','Weekly ep'],['#7d9e7a','📺 TV'],['#8a7ab8','🎬 Movie'],['#a05252','🍿 Cinema']]
           .map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--ink-soft);"><span style="width:8px;height:8px;border-radius:2px;background:${c};"></span>${l}</span>`).join('')}
       </div>`;
@@ -1442,8 +1477,9 @@ function moveWishToWatching(id){
 // ═══════════════════════════════════════════════════════════════
 let _editUpcomingId=null;
 
-function openUpcomingModal(id){
+function openUpcomingModal(id,prefillDate){
   _editUpcomingId=id||null;
+  const _pd=prefillDate||'';
   const u=id?upcoming.find(x=>String(x.id)===String(id)):null;
   openModal(u?'Edit Upcoming':'Add Upcoming',`
     <div class="field"><label>Title</label><input id="up-title" value="${esc(u?.title||'')}" placeholder="Show or movie title"/></div>
@@ -1456,7 +1492,7 @@ function openUpcomingModal(id){
     </div>
     <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
-      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||''}"/></div>
+      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||_pd}"/></div>
       <div class="field"><label>Year only (if date unknown)</label><input id="up-releaseyear" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/></div>
     </div>
     <div id="up-airing-fields" style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
@@ -1472,6 +1508,7 @@ function openUpcomingModal(id){
       </div>
       <div class="grid-2">
         <div class="field"><label>Total Episodes</label><input id="up-totalep" type="number" min="1" value="${u?.totalEp||''}"/></div>
+        <div class="field"><label>Eps per week</label><input id="up-epsperweek" type="number" min="1" max="7" value="${u?.epsPerWeek||1}"/></div>
       </div>
     </div>
     <div class="field"><label>Notes</label><textarea id="up-notes" rows="2">${esc(u?.notes||'')}</textarea></div>
@@ -1506,11 +1543,28 @@ function saveUpcoming(){
     airDay:airDayEl?.value!==''?Number(airDayEl.value):'',
     firstAirDate:document.getElementById('up-firstairdate').value||'',
     totalEp:document.getElementById('up-totalep')?.value||'',
+    epsPerWeek:String(Math.max(1,parseInt(document.getElementById('up-epsperweek')?.value)||1)),
     notes:document.getElementById('up-notes').value
   };
+  // Auto-derive weekly schedule: release date + total eps → recurs on that weekday
+  if(item.type==='TV Show'&&item.releaseDate&&item.totalEp&&item.airDay===''){
+    item.airDay=new Date(item.releaseDate+'T12:00:00').getDay();
+    item.firstAirDate=item.releaseDate;
+  }
   if(_editUpcomingId){ upcoming=upcoming.map(u=>String(u.id)===String(_editUpcomingId)?item:u); }
   else{ upcoming.push(item); }
   saveCache(); pushUpsert('UPCOMING',item);
+  // Mirror to Wishlist so it's findable later even if missed at release
+  if(!_editUpcomingId){
+    const key=item.title.trim().toLowerCase();
+    const inWish=wishlist.some(w=>String(w.title||'').trim().toLowerCase()===key);
+    const inWatch=ongoing.some(o=>String(o.title||'').trim().toLowerCase()===key&&!o.givenUp);
+    if(!inWish&&!inWatch){
+      const wItem={id:Date.now()+1,title:item.title,type:item.type,platform:item.platform,
+        notes:'🔮 From Upcoming'+(item.releaseDate?' · releases '+item.releaseDate:''),added:todayYMD()};
+      wishlist.push(wItem); saveCache(); pushUpsert('WISHLIST',wItem);
+    }
+  }
   closeModal(); showToast('✓ Saved'); rerender();
 }
 
