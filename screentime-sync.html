@@ -137,7 +137,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.8 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.9 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -153,6 +153,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
         <span id="sync-status-lbl">Local</span>
       </button>
       <button class="header-btn-file" id="sheets-sync-btn" onclick="hasSheetsUrl()?pullFromSheets(false):openSyncSettings()" style="cursor:pointer;">☁️ Sync</button>
+      <button class="header-btn-file" onclick="pushAllToSheets()" title="Push everything on this device up to Google Sheets" style="cursor:pointer;">⬆️ Push All</button>
       <span id="last-sync-label" style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);"></span>
     </div>
   </div>
@@ -416,6 +417,26 @@ let _dirty     = false; // local changes pending push
 // ── URL management ────────────────────────────────────────────────────────────
 function getSheetsUrl()  { return _sheetsUrl; }
 function hasSheetsUrl()  { return !!_sheetsUrl; }
+// Push everything on this device up to Google Sheets (upsert, no deletes)
+async function pushAllToSheets(){
+  if(!hasSheetsUrl()){ openSyncSettings(); return; }
+  setSyncStatus('syncing'); showSyncToast('⬆ Pushing all data…');
+  const jobs=[['ENTRIES',entries],['ONGOING',ongoing],['WISHLIST',wishlist],['UPCOMING',upcoming]];
+  let total=0;
+  try{
+    for(const [sheet,data] of jobs){
+      if(!data.length) continue;
+      await sheetsPost({op:'batchUpsert', sheet, data});
+      total+=data.length;
+    }
+    localStorage.setItem('sc:lastSync',new Date().toISOString());
+    updateLastSyncLabel(); setSyncStatus('synced');
+    showSyncToast('✓ Pushed '+total+' records to Sheets');
+  }catch(err){
+    setSyncStatus('error'); showSyncToast('⚠ Push failed: '+(err.message||'unknown'));
+  }
+}
+
 function updateLastSyncLabel(){
   const el=document.getElementById('last-sync-label'); if(!el) return;
   const t=localStorage.getItem('sc:lastSync');
@@ -600,6 +621,7 @@ function normaliseUpcoming(rows) {
     airDay:       u.airDay !== undefined && u.airDay !== '' ? Number(u.airDay) : '',
     firstAirDate: toYMD(u.firstAirDate) || '',
     totalEp:      String(u.totalEp     || ''),
+    epsPerWeek:   String(u.epsPerWeek  || '1'),
     notes:        String(u.notes       || '')
   })).filter(u => u.title);
 }
@@ -2769,8 +2791,9 @@ function todayYMD() {
 }
 
 // Given a firstAirDate (YYYY-MM-DD) and airDay (0-6), compute the date of episodeNum (1-based)
-function episodeDate(firstAirDate, airDay, episodeNum) {
+function episodeDate(firstAirDate, airDay, episodeNum, epsPerWeek) {
   if(!firstAirDate || airDay === '') return null;
+  const epw = Math.max(1, parseInt(epsPerWeek) || 1);
   const base = new Date(firstAirDate + 'T12:00:00');
   // Snap base to the correct airDay
   const baseDow = base.getDay();
@@ -2778,7 +2801,7 @@ function episodeDate(firstAirDate, airDay, episodeNum) {
   const ep1 = new Date(base);
   ep1.setDate(ep1.getDate() + diff);
   const target = new Date(ep1);
-  target.setDate(ep1.getDate() + (episodeNum - 1) * 7);
+  target.setDate(ep1.getDate() + Math.floor((episodeNum - 1) / epw) * 7);
   return target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
 }
 
@@ -2796,7 +2819,9 @@ function daysUntil(ymd) {
 
 // ── Modal state ───────────────────────────────────────────────────────────────
 let _upcomingEditId = null;
+let _upPrefillDate = '';
 let _upView = 'cal';
+let _calFilter = 'all';
 let _upShowReleased = false;
 let _upcomingCalMonth = new Date().getMonth();
 let _upcomingCalYear  = new Date().getFullYear();
@@ -2814,6 +2839,7 @@ function saveUpcomingEntry() {
   const airDayVal   = document.getElementById('up-airday').value;
   const firstAirDate= document.getElementById('up-firstairdate').value;
   const totalEp     = document.getElementById('up-totalep').value.trim();
+  const epsPerWeek  = document.getElementById('up-epsperweek')?.value || '1';
   const notes       = document.getElementById('up-notes').value.trim();
 
   const entry = {
@@ -2824,8 +2850,16 @@ function saveUpcomingEntry() {
     airDay:       airDayVal !== '' ? Number(airDayVal) : '',
     firstAirDate: firstAirDate || '',
     totalEp:      totalEp || '',
+    epsPerWeek:   String(Math.max(1, parseInt(epsPerWeek)||1)),
     notes
   };
+
+  // Auto-derive weekly schedule for TV shows: release date + total eps
+  // is enough — episodes recur on the release weekday automatically.
+  if(entry.type === 'TV Show' && entry.releaseDate && entry.totalEp && entry.airDay === '') {
+    entry.airDay = new Date(entry.releaseDate + 'T12:00:00').getDay();
+    entry.firstAirDate = entry.releaseDate;
+  }
 
   if(_upcomingEditId) {
     upcoming = upcoming.map(u => String(u.id) === String(_upcomingEditId) ? entry : u);
@@ -2834,6 +2868,20 @@ function saveUpcomingEntry() {
   }
   localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
   pushUpsert('UPCOMING', entry);
+
+  // Mirror to Wishlist so it's findable later even if missed at release
+  if(!_upcomingEditId) {
+    const key = title.trim().toLowerCase();
+    const inWishlist = wishlist.some(w => String(w.title||'').trim().toLowerCase() === key);
+    const inWatching = ongoing.some(o => String(o.title||'').trim().toLowerCase() === key && !o.givenUp);
+    if(!inWishlist && !inWatching) {
+      const wItem = { id: Date.now()+Math.floor(Math.random()*1000)+1, title, type, platform,
+        notes: '🔮 From Upcoming' + (releaseDate ? ' · releases '+releaseDate : ''), added: todayYMD() };
+      wishlist.push(wItem);
+      save('wishlist', wishlist);
+      pushUpsert('WISHLIST', wItem);
+    }
+  }
   closeUpcomingModal();
   renderUpcoming();
 }
@@ -2847,8 +2895,9 @@ function deleteUpcomingEntry(id) {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
-function openUpcomingModal(id) {
+function openUpcomingModal(id, prefillDate) {
   _upcomingEditId = id || null;
+  _upPrefillDate = prefillDate || '';
   const u = id ? upcoming.find(x => String(x.id) === String(id)) : null;
 
   const PLATFORMS = ['','Netflix','Disney+','Apple TV+','Prime Video','HBO Max','Hulu','Peacock','BBC','ITVX','Gimy','Cinema','Other'];
@@ -2891,7 +2940,7 @@ function openUpcomingModal(id) {
     <div style="background:var(--bgAlt,#f9f1e3);border-radius:10px;padding:12px;margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
       <label style="font-size:11px;color:var(--textDim);">Confirmed release date (leave empty if TBA)</label>
-      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||''}" style="margin-bottom:8px;"/>
+      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||_upPrefillDate||''}" style="margin-bottom:8px;"/>
       <label style="font-size:11px;color:var(--textDim);">Year only (if date unknown)</label>
       <input id="up-releaseyear" class="modal-input" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/>
     </div>
@@ -2906,6 +2955,10 @@ function openUpcomingModal(id) {
         <div>
           <label style="font-size:11px;color:var(--textDim);">First episode date</label>
           <input id="up-firstairdate" class="modal-input" type="date" value="${u?.firstAirDate||''}"/>
+        </div>
+        <div>
+          <label class="label">Episodes per week</label>
+          <input id="up-epsperweek" class="modal-input" type="number" min="1" max="7" value="${u?.epsPerWeek||1}" placeholder="1"/>
         </div>
       </div>
     </div>
@@ -2938,9 +2991,11 @@ function closeUpcomingModal() {
 // ── Airing calendar ───────────────────────────────────────────────────────────
 function renderAiringCalendar() {
   const today = todayYMD();
+  const fPill = (v,l) => `<button onclick="event.stopPropagation();_calFilter='${v}';renderUpcoming();" style="border:1px solid ${_calFilter===v?'var(--accent)':'var(--border)'};background:${_calFilter===v?'var(--accent)':'#fff'};color:${_calFilter===v?'#fff':'var(--textMid)'};border-radius:999px;padding:4px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;">${l}</button>`;
+  const filterBar = `<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">${fPill('all','All')}${fPill('weekly','📡 Weekly episodes')}${fPill('releases','🎬 Releases')}</div>`;
   // Collect all airing shows from upcoming with a schedule AND from ongoing (watching)
   const airingShows = [
-    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate && u.totalEp),
+    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate && u.totalEp).map(u => ({...u, currentEp: 0})),
     ...ongoing.filter(o =>
       !o.completed && !o.givenUp &&
       o.completedType !== 'Movie' &&
@@ -2964,7 +3019,7 @@ function renderAiringCalendar() {
     const total = parseInt(show.totalEp) || 0;
     const startEp = parseInt(show.currentEp || 0) + 1;
     for(let ep = startEp; ep <= total; ep++) {
-      const d = episodeDate(show.firstAirDate, show.airDay, ep);
+      const d = episodeDate(show.firstAirDate, show.airDay, ep, show.epsPerWeek);
       if(!d) continue;
       if(!calMap[d]) calMap[d] = [];
       calMap[d].push({ title: show.title, season: show.season, ep, platform: show.platform });
@@ -2972,12 +3027,22 @@ function renderAiringCalendar() {
   });
 
   // Also mark release-day drops from Upcoming entries (whole show/movie out same day)
+  // — but skip entries that already render as a weekly schedule
   upcoming.forEach(u => {
+    if(u.airDay !== '' && u.firstAirDate && u.totalEp) return;
     const d = toYMD(u.releaseDate);
     if(!d) return;
     if(!calMap[d]) calMap[d] = [];
     calMap[d].push({ title: u.title, season: u.season, ep: null, platform: u.platform, type: u.type, isRelease: true });
   });
+
+  // Apply view filter
+  if(_calFilter !== 'all') {
+    for(const d in calMap) {
+      calMap[d] = calMap[d].filter(ev => _calFilter === 'weekly' ? !ev.isRelease : ev.isRelease);
+      if(!calMap[d].length) delete calMap[d];
+    }
+  }
 
   // Render month calendar
   const year = _upcomingCalYear, month = _upcomingCalMonth;
@@ -2985,7 +3050,7 @@ function renderAiringCalendar() {
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const monthName = MONTH_NAMES[month] + ' ' + year;
 
-  let html = `
+  let html = filterBar + `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
       <button onclick="_upcomingCalMonth--;if(_upcomingCalMonth<0){_upcomingCalMonth=11;_upcomingCalYear--;}renderUpcoming();" style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;">‹</button>
       <div style="flex:1;text-align:center;font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);">${monthName}</div>
@@ -3006,7 +3071,7 @@ function renderAiringCalendar() {
     const isToday = ymd === today;
     const isPast  = ymd < today;
     html += `
-      <div style="min-height:60px;border-radius:6px;padding:4px;border:1px solid ${isToday?'var(--accent)':' var(--border)'};background:${isToday?'var(--accentPale,#fbe9df)':isPast?'#fafafa':'#fff'};">
+      <div onclick="openUpcomingModal(null,'${ymd}')" title="Click to add an upcoming entry on ${ymd}" style="cursor:pointer;min-height:60px;border-radius:6px;padding:4px;border:1px solid ${isToday?'var(--accent)':' var(--border)'};background:${isToday?'var(--accentPale,#fbe9df)':isPast?'#fafafa':'#fff'};">
         <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--textDim)':'var(--text)'};margin-bottom:2px;">${d}</div>
         ${events.map(ev=>{
           if(!ev.isRelease) return `<div style="font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep}">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`;
@@ -3022,6 +3087,7 @@ function renderAiringCalendar() {
   }
   html += '</div>';
   html += `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">
+    <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">💡 Click any day to add an entry</span>
     ${[['var(--accent)','Weekly episode'],['#7d9e7a','📺 TV show release'],['#8a7ab8','🎬 Movie (streaming)'],['#a05252','🍿 Movie (cinema)']]
       .map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textMid);"><span style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block;"></span>${l}</span>`).join('')}
   </div>`;
