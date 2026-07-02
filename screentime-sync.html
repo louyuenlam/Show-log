@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.5 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.6 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -612,7 +612,10 @@ function normaliseOngoing(rows) {
     notes:         String(o.notes         || ''),
     posterUrl:     String(o.posterUrl     || ''),
     airDay:        o.airDay !== undefined && o.airDay !== '' ? Number(o.airDay) : '',
-    firstAirDate:  toYMD(o.firstAirDate) || ''
+    firstAirDate:  toYMD(o.firstAirDate) || '',
+    epsPerWeek:    String(o.epsPerWeek  || '1'),
+    premiereEps:   String(o.premiereEps || '1'),
+    startEp:       String(o.startEp     || '1')
   })).filter(o => o.title);
 }
 
@@ -845,6 +848,19 @@ function autoMergeUpcoming() {
     ongoing.some(o => key(o.title)===key(u.title) && String(o.season||'')===String(u.season||'') && !o.givenUp)
   );
   if(!merged.length) return;
+  // Hand the airing schedule over to the Watching row so the calendar
+  // keeps showing the remaining (unwatched) episodes
+  merged.forEach(u => {
+    if(u.airDay === '' || !u.firstAirDate) return;
+    const o = ongoing.find(x => key(x.title)===key(u.title) && String(x.season||'')===String(u.season||'') && !x.givenUp);
+    if(!o || (o.airDay !== '' && o.firstAirDate)) return; // already has one
+    const upd = {...o, airDay: u.airDay, firstAirDate: u.firstAirDate,
+      epsPerWeek: u.epsPerWeek||'1', premiereEps: u.premiereEps||'1', startEp: u.startEp||'1',
+      totalEp: o.totalEp || u.totalEp || ''};
+    ongoing = ongoing.map(x => String(x.id)===String(o.id) ? upd : x);
+    save('ongoing', ongoing);
+    pushUpsert('ONGOING', upd);
+  });
   upcoming = upcoming.filter(u => !merged.includes(u));
   localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
   merged.forEach(u => pushDelete('UPCOMING', u.id));
