@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.3 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.4 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -3073,6 +3073,19 @@ function renderAiringCalendar() {
     calMap[d].push({ title: u.title, season: u.season, ep: null, platform: u.platform, type: u.type, isRelease: true, src:'up', srcId: u.id });
   });
 
+  // Merge same-show episode chips on the same day into ranges (e.g. E1-2)
+  for(const d in calMap) {
+    const merged = [], byShow = {};
+    for(const ev of calMap[d]) {
+      if(ev.isRelease || ev.ep == null) { merged.push(ev); continue; }
+      const k = (ev.src||'') + '|' + (ev.srcId||'') + '|' + ev.title;
+      if(!byShow[k]) { byShow[k] = {...ev, epFrom: ev.ep, epTo: ev.ep}; merged.push(byShow[k]); }
+      else { byShow[k].epFrom = Math.min(byShow[k].epFrom, ev.ep); byShow[k].epTo = Math.max(byShow[k].epTo, ev.ep); }
+    }
+    merged.forEach(ev => { if(ev.epFrom !== undefined) ev.epLabel = ev.epFrom === ev.epTo ? 'E'+ev.epFrom : 'E'+ev.epFrom+'-'+ev.epTo; });
+    calMap[d] = merged;
+  }
+
   // Apply view filter
   if(_calFilter !== 'all') {
     for(const d in calMap) {
@@ -3112,7 +3125,7 @@ function renderAiringCalendar() {
         <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--textDim)':'var(--text)'};margin-bottom:2px;">${d}</div>
         ${events.map(ev=>{
           const click = ev.src ? `onclick="event.stopPropagation();${ev.src==='up'?'openUpcomingModal':'openOngoingModal'}('${ev.srcId}')"` : '';
-          if(!ev.isRelease) return `<div ${click} style="cursor:pointer;font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep} — click to edit">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`;
+          if(!ev.isRelease) return `<div ${click} style="cursor:pointer;font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} ${ev.epLabel||('E'+ev.ep)} — click to edit">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} ${ev.epLabel||('E'+ev.ep)}</div>`;
           // Release chips: TV Show=green, Movie(streaming)=purple, Movie(Cinema)=burgundy
           const isCinema = ev.platform==='Cinema';
           const isMovie  = ev.type==='Movie';
