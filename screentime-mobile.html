@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.5</div>
+      <div id="header-sub">your watch journal · v2.6</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.5 · mobile</div>
+      <div id="drawer-version">v2.6 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -388,7 +388,8 @@ function normUpcoming(rows){ return (rows||[]).map(u=>({
   releaseDate:toYMD(u.releaseDate)||'', releaseYear:String(u.releaseYear||''),
   airDay:u.airDay!==undefined&&u.airDay!==''?Number(u.airDay):'',
   firstAirDate:toYMD(u.firstAirDate)||'', totalEp:String(u.totalEp||''),
-  epsPerWeek:String(u.epsPerWeek||'1'), premiereEps:String(u.premiereEps||'1'), notes:String(u.notes||'')
+  epsPerWeek:String(u.epsPerWeek||'1'), premiereEps:String(u.premiereEps||'1'),
+  startEp:String(u.startEp||'1'), notes:String(u.notes||'')
 })).filter(u=>u.title); }
 
 // ═══════════════════════════════════════════════════════════════
@@ -843,10 +844,11 @@ function renderUpcoming(){
     const viewEnd=_ve.getFullYear()+'-'+String(_ve.getMonth()+1).padStart(2,'0')+'-01';
     airingAll.forEach(sh=>{
       const tot=parseInt(sh.totalEp)||0;
-      const start=Math.max(1,parseInt(sh.currentEp||0)+1);
+      const base=Math.max(1,parseInt(sh.startEp)||1);
+      const start=Math.max(base,parseInt(sh.currentEp||0)+1);
       const cap=tot||200; // open-ended when total unknown
       for(let ep=start;ep<=cap;ep++){
-        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep,sh.epsPerWeek,sh.premiereEps); if(!d) continue;
+        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep-base+1,sh.epsPerWeek,sh.premiereEps); if(!d) continue;
         if(!tot&&d>=viewEnd) break;
         (calMap[d]=calMap[d]||[]).push({title:sh.title,ep,isRelease:false,src:sh._src,srcId:sh.id});
       }
@@ -1527,6 +1529,7 @@ function openUpcomingModal(id,prefillDate){
       </div>
       <div class="grid-2">
         <div class="field"><label>Total Episodes</label><input id="up-totalep" type="number" min="1" value="${u?.totalEp||''}"/></div>
+        <div class="field"><label>First ep #</label><input id="up-startep" type="number" min="1" value="${u?.startEp||1}"/></div>
         <div class="field"><label>Eps on premiere</label><input id="up-premiereeps" type="number" min="1" max="20" value="${u?.premiereEps||1}"/></div>
         <div class="field"><label>Eps per week after</label><input id="up-epsperweek" type="number" min="1" max="7" value="${u?.epsPerWeek||1}"/></div>
       </div>
@@ -1574,6 +1577,7 @@ function saveUpcoming(){
     totalEp:document.getElementById('up-totalep')?.value||'',
     epsPerWeek:String(Math.max(1,parseInt(document.getElementById('up-epsperweek')?.value)||1)),
     premiereEps:String(Math.max(1,parseInt(document.getElementById('up-premiereeps')?.value)||1)),
+    startEp:String(Math.max(1,parseInt(document.getElementById('up-startep')?.value)||1)),
     notes:document.getElementById('up-notes').value
   };
   if(_editUpcomingId){ upcoming=upcoming.map(u=>String(u.id)===String(_editUpcomingId)?item:u); }
