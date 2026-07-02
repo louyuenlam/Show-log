@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.3</div>
+      <div id="header-sub">your watch journal · v2.4</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.3 · mobile</div>
+      <div id="drawer-version">v2.4 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -388,7 +388,7 @@ function normUpcoming(rows){ return (rows||[]).map(u=>({
   releaseDate:toYMD(u.releaseDate)||'', releaseYear:String(u.releaseYear||''),
   airDay:u.airDay!==undefined&&u.airDay!==''?Number(u.airDay):'',
   firstAirDate:toYMD(u.firstAirDate)||'', totalEp:String(u.totalEp||''),
-  epsPerWeek:String(u.epsPerWeek||'1'), notes:String(u.notes||'')
+  epsPerWeek:String(u.epsPerWeek||'1'), premiereEps:String(u.premiereEps||'1'), notes:String(u.notes||'')
 })).filter(u=>u.title); }
 
 // ═══════════════════════════════════════════════════════════════
@@ -750,13 +750,15 @@ function renderWishlist(){
 // ═══════════════════════════════════════════════════════════════
 // UPCOMING TAB
 // ═══════════════════════════════════════════════════════════════
-function epDateCalc(firstAirDate,airDay,epNum,epsPerWeek){
+function epDateCalc(firstAirDate,airDay,epNum,epsPerWeek,premiereEps){
   if(!firstAirDate||airDay==='') return null;
   const epw=Math.max(1,parseInt(epsPerWeek)||1);
+  const prem=Math.max(1,parseInt(premiereEps)||1);
   const base=new Date(firstAirDate+'T12:00:00');
   const diff=((airDay-base.getDay())+7)%7;
   const ep1=new Date(base); ep1.setDate(ep1.getDate()+diff);
-  const tgt=new Date(ep1); tgt.setDate(ep1.getDate()+Math.floor((epNum-1)/epw)*7);
+  const weeks=epNum<=prem?0:Math.floor((epNum-prem-1)/epw)+1;
+  const tgt=new Date(ep1); tgt.setDate(ep1.getDate()+weeks*7);
   return tgt.getFullYear()+'-'+String(tgt.getMonth()+1).padStart(2,'0')+'-'+String(tgt.getDate()).padStart(2,'0');
 }
 
@@ -811,7 +813,7 @@ function renderUpcoming(){
     let logBtn='';
     if(ongId){
       const nextEp=Math.max(1,parseInt(currentEp||0)+1);
-      const nd=epDateCalc(firstAirDate,airDay,nextEp);
+      const nd=epDateCalc(firstAirDate,airDay,nextEp,1,1);
       if(nd&&nd<=today&&(!tot||nextEp<=tot)){
         logBtn=`<button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="logNextEp('${ongId}')">▶ Log Ep ${nextEp}</button>`;
       }
@@ -844,7 +846,7 @@ function renderUpcoming(){
       const start=Math.max(1,parseInt(sh.currentEp||0)+1);
       const cap=tot||200; // open-ended when total unknown
       for(let ep=start;ep<=cap;ep++){
-        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep,sh.epsPerWeek); if(!d) continue;
+        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep,sh.epsPerWeek,sh.premiereEps); if(!d) continue;
         if(!tot&&d>=viewEnd) break;
         (calMap[d]=calMap[d]||[]).push({title:sh.title,ep,isRelease:false,src:sh._src,srcId:sh.id});
       }
@@ -1497,7 +1499,7 @@ function openUpcomingModal(id,prefillDate){
     </div>
     <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
-      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||_pd}"/></div>
+      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||_pd}" onchange="upAutoFill()"/></div>
       <div class="field"><label>Year only (if date unknown)</label><input id="up-releaseyear" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/></div>
     </div>
     <div id="up-airing-fields" style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
@@ -1513,7 +1515,8 @@ function openUpcomingModal(id,prefillDate){
       </div>
       <div class="grid-2">
         <div class="field"><label>Total Episodes</label><input id="up-totalep" type="number" min="1" value="${u?.totalEp||''}"/></div>
-        <div class="field"><label>Eps per week</label><input id="up-epsperweek" type="number" min="1" max="7" value="${u?.epsPerWeek||1}"/></div>
+        <div class="field"><label>Eps on premiere</label><input id="up-premiereeps" type="number" min="1" max="20" value="${u?.premiereEps||1}"/></div>
+        <div class="field"><label>Eps per week after</label><input id="up-epsperweek" type="number" min="1" max="7" value="${u?.epsPerWeek||1}"/></div>
       </div>
     </div>
     <div class="field"><label>Notes</label><textarea id="up-notes" rows="2">${esc(u?.notes||'')}</textarea></div>
@@ -1534,6 +1537,15 @@ function upTypeChange(){
   if(airf) airf.style.display=isMovie?'none':'block';
 }
 
+function upAutoFill(){
+  const typ=document.getElementById('up-type')?.value;
+  const rd=document.getElementById('up-releasedate')?.value;
+  const ad=document.getElementById('up-airday');
+  const fa=document.getElementById('up-firstairdate');
+  if(typ!=='TV Show'||!rd||!ad||ad.value!==''||(fa&&fa.value)) return;
+  ad.value=String(new Date(rd+'T12:00:00').getDay());
+  if(fa) fa.value=rd;
+}
 function saveUpcoming(){
   const title=document.getElementById('up-title').value.trim();
   if(!title){ showToast('Title required',true); return; }
@@ -1549,13 +1561,9 @@ function saveUpcoming(){
     firstAirDate:document.getElementById('up-firstairdate').value||'',
     totalEp:document.getElementById('up-totalep')?.value||'',
     epsPerWeek:String(Math.max(1,parseInt(document.getElementById('up-epsperweek')?.value)||1)),
+    premiereEps:String(Math.max(1,parseInt(document.getElementById('up-premiereeps')?.value)||1)),
     notes:document.getElementById('up-notes').value
   };
-  // Auto-derive weekly schedule: release date + total eps → recurs on that weekday
-  if(item.type==='TV Show'&&item.releaseDate&&item.totalEp&&item.airDay===''){
-    item.airDay=new Date(item.releaseDate+'T12:00:00').getDay();
-    item.firstAirDate=item.releaseDate;
-  }
   if(_editUpcomingId){ upcoming=upcoming.map(u=>String(u.id)===String(_editUpcomingId)?item:u); }
   else{ upcoming.push(item); }
   saveCache(); pushUpsert('UPCOMING',item);
