@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v1.6</div>
+      <div id="header-sub">your watch journal · v2.0</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v1.6 · mobile</div>
+      <div id="drawer-version">v2.0 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -301,6 +301,8 @@ const MONTHS    = ['January','February','March','April','May','June','July','Aug
 const MONTHS_S  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_F    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let _upCalM=new Date().getMonth(), _upCalY=new Date().getFullYear();
+let _upView='cal', _upShowReleased=false;
 
 let entries = [], ongoing = [], wishlist = [], upcoming = [];
 let _sheetsUrl = localStorage.getItem(SHEETS_URL) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
@@ -746,13 +748,17 @@ function renderUpcoming(){
       hasDate?`<span class="upcoming-badge soon">${days===0?'Today!':'in '+days+'d'}</span>`:
       `<span class="upcoming-badge tba">TBA ${u.releaseYear||''}</span>`;
     const sub=[u.platform,u.season?'S'+u.season:'',hasDate?fmtDate(u.releaseDate):''].filter(Boolean).join(' · ');
-    return `<div class="show-card">
+    // Colour by type: TV=green, Movie(streaming)=purple, Movie(Cinema)=burgundy
+    const isMovie=u.type==='Movie', isCinema=u.platform==='Cinema';
+    const clr=isMovie?(isCinema?'#a05252':'#8a7ab8'):'#7d9e7a';
+    const icon=isMovie?(isCinema?'🍿':'🎬'):'📺';
+    return `<div class="show-card" style="border-left:4px solid ${clr};">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="flex:1;min-width:0;">
-          <div class="show-card-title">${esc(u.title)}</div>
+          <div class="show-card-title">${icon} ${esc(u.title)}</div>
           <div class="show-card-meta">${esc(sub)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">${badge}${typeBadge(u.type)}</div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">${badge}</div>
       </div>
       <div class="show-card-actions">
         <button class="btn btn-sm btn-secondary" onclick="openUpcomingModal('${u.id}')">Edit</button>
@@ -799,15 +805,97 @@ function renderUpcoming(){
     ...airingUpcoming.map(u=>airingCard(u.title,u.season,u.platform,Number(u.airDay),u.firstAirDate,u.totalEp,0,null))
   ].join('')||'<div class="empty"><div class="empty-text">No airing schedules set up yet.</div></div>';
 
+  // ── Monthly airing calendar ──
+  function upcomingCal(){
+    const calMap={};
+    // Weekly episode drops from airing shows (Watching + Upcoming with schedules)
+    const airingAll=[
+      ...ongoing.filter(o=>!o.completed&&!o.givenUp&&o.airDay!==''&&o.airDay!==null&&o.airDay!==undefined&&o.firstAirDate),
+      ...upcoming.filter(u=>u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate)
+    ];
+    airingAll.forEach(sh=>{
+      const tot=parseInt(sh.totalEp)||0; if(!tot) return;
+      const start=Math.max(1,parseInt(sh.currentEp||0)+1);
+      for(let ep=start;ep<=tot;ep++){
+        const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep); if(!d) continue;
+        (calMap[d]=calMap[d]||[]).push({title:sh.title,ep,isRelease:false});
+      }
+    });
+    // Release-day drops
+    upcoming.forEach(u=>{
+      const d=toYMD(u.releaseDate); if(!d) return;
+      (calMap[d]=calMap[d]||[]).push({title:u.title,type:u.type,platform:u.platform,isRelease:true});
+    });
+    const y=_upCalY,m=_upCalM;
+    const firstDay=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate();
+    const MONTHS_N=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    let cells='';
+    for(let i=0;i<firstDay;i++) cells+='<div></div>';
+    for(let d=1;d<=dim;d++){
+      const ymd=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const evs=calMap[ymd]||[];
+      const isToday=ymd===today, isPast=ymd<today;
+      cells+=`<div style="min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};background:${isToday?'#fbe9df':isPast?'#faf6ee':'#fff'};">
+        <div style="font-size:10px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--ink-dim)':'var(--ink)'};">${d}</div>
+        ${evs.map(ev=>{
+          if(!ev.isRelease) return `<div style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} E${ev.ep}</div>`;
+          const isMv=ev.type==='Movie', isCin=ev.platform==='Cinema';
+          const bg=isMv?(isCin?'#a05252':'#8a7ab8'):'#7d9e7a';
+          const ic=isMv?(isCin?'🍿':'🎬'):'📺';
+          return `<div style="font-size:8px;background:${bg};color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${ic}${esc(ev.title.length>6?ev.title.slice(0,5)+'…':ev.title)}</div>`;
+        }).join('')}
+      </div>`;
+    }
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-sm btn-secondary" onclick="_upCalM--;if(_upCalM<0){_upCalM=11;_upCalY--;}renderUpcoming();">‹</button>
+        <div style="flex:1;text-align:center;font-family:'Fraunces',serif;font-size:14px;font-weight:700;">${MONTHS_N[m]} ${y}</div>
+        <button class="btn btn-sm btn-secondary" onclick="_upCalM++;if(_upCalM>11){_upCalM=0;_upCalY++;}renderUpcoming();">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px;">
+        ${['S','M','T','W','T','F','S'].map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:var(--ink-dim);">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cells}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+        ${[['var(--accent)','Weekly ep'],['#7d9e7a','📺 TV'],['#8a7ab8','🎬 Movie'],['#a05252','🍿 Cinema']]
+          .map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--ink-soft);"><span style="width:8px;height:8px;border-radius:2px;background:${c};"></span>${l}</span>`).join('')}
+      </div>`;
+  }
+
+  const notReleased=confirmed.filter(u=>u.releaseDate>today);
+  const released=confirmed.filter(u=>u.releaseDate<=today);
+
+  const pillBtn=(v,l,c)=>`<button class="pill${_upView===v?' active':''}" onclick="_upView='${v}';renderUpcoming();">${l}${c!==undefined?' ('+c+')':''}</button>`;
+
+  let viewHtml='';
+  if(_upView==='list'){
+    viewHtml=(notReleased.length||tba.length||released.length)?`
+      ${[...notReleased,...tba].map(upCard).join('')||''}
+      ${released.length?`
+        <div style="border:1px dashed var(--line);border-radius:12px;padding:10px 14px;margin-top:4px;">
+          <button onclick="_upShowReleased=!_upShowReleased;renderUpcoming();" style="background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:0;">
+            ${_upShowReleased?'▾':'▸'} Released (${released.length})
+          </button>
+          ${_upShowReleased?`<div style="margin-top:10px;">${released.map(upCard).join('')}</div>`:''}
+        </div>`:''}
+    `:'<div class="empty" style="padding:20px 0;"><div class="empty-text">No upcoming entries.</div></div>';
+  } else if(_upView==='airing'){
+    viewHtml=airingHtml;
+  } else {
+    viewHtml=`<div class="show-card">${upcomingCal()}</div>`;
+  }
+
   document.getElementById('upcoming-content').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div class="section-hd">🔮 <em>Upcoming</em></div>
       <button class="btn btn-sm btn-primary" onclick="openUpcomingModal(null)">+ Add</button>
     </div>
-    ${confirmed.length||tba.length?`<div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:8px;">Coming Soon</div>${[...confirmed,...tba].map(upCard).join('')}`
-      :'<div class="empty" style="padding:20px 0;"><div class="empty-text">No upcoming entries.</div></div>'}
-    <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin:16px 0 8px;">📡 Currently Airing</div>
-    ${airingHtml}
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      ${pillBtn('list','🗓️ Soon',notReleased.length+tba.length)}
+      ${pillBtn('airing','📡 Airing')}
+      ${pillBtn('cal','📅 Calendar')}
+    </div>
+    ${viewHtml}
   `;
 }
 
