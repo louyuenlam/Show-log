@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.4 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.5 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -641,6 +641,7 @@ function normaliseUpcoming(rows) {
     totalEp:      String(u.totalEp     || ''),
     epsPerWeek:   String(u.epsPerWeek  || '1'),
     premiereEps:  String(u.premiereEps || '1'),
+    startEp:      String(u.startEp     || '1'),
     notes:        String(u.notes       || '')
   })).filter(u => u.title);
 }
@@ -2885,6 +2886,7 @@ function saveUpcomingEntry() {
     totalEp:      totalEp || '',
     epsPerWeek:   String(Math.max(1, parseInt(epsPerWeek)||1)),
     premiereEps:  String(Math.max(1, parseInt(document.getElementById('up-premiereeps')?.value)||1)),
+    startEp:      String(Math.max(1, parseInt(document.getElementById('up-startep')?.value)||1)),
     notes
   };
 
@@ -2984,6 +2986,10 @@ function openUpcomingModal(id, prefillDate) {
           <input id="up-firstairdate" class="modal-input" type="date" value="${u?.firstAirDate||''}"/>
         </div>
         <div>
+          <label class="label">First ep #</label>
+          <input id="up-startep" class="modal-input" type="number" min="1" value="${u?.startEp||1}" title="Starting episode number — e.g. 7 for the second half of a split season"/>
+        </div>
+        <div>
           <label class="label">Eps on premiere</label>
           <input id="up-premiereeps" class="modal-input" type="number" min="1" max="20" value="${u?.premiereEps||1}" title="How many episodes drop on the first air date"/>
         </div>
@@ -3052,10 +3058,11 @@ function renderAiringCalendar() {
   const viewEnd = _ve.getFullYear() + '-' + String(_ve.getMonth()+1).padStart(2,'0') + '-01';
   airingShows.forEach(show => {
     const total = parseInt(show.totalEp) || 0;
-    const startEp = parseInt(show.currentEp || 0) + 1;
+    const base = Math.max(1, parseInt(show.startEp) || 1); // split seasons can start at ep 7
+    const startEp = Math.max(base, parseInt(show.currentEp || 0) + 1);
     const cap = total || 200; // no total known → open-ended, bounded by viewed month
     for(let ep = startEp; ep <= cap; ep++) {
-      const d = episodeDate(show.firstAirDate, show.airDay, ep, show.epsPerWeek, show.premiereEps);
+      const d = episodeDate(show.firstAirDate, show.airDay, ep - base + 1, show.epsPerWeek, show.premiereEps);
       if(!d) continue;
       if(!total && d >= viewEnd) break;
       if(!calMap[d]) calMap[d] = [];
