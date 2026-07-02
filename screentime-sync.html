@@ -137,7 +137,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.6 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.8 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2796,6 +2796,8 @@ function daysUntil(ymd) {
 
 // ── Modal state ───────────────────────────────────────────────────────────────
 let _upcomingEditId = null;
+let _upView = 'cal';
+let _upShowReleased = false;
 let _upcomingCalMonth = new Date().getMonth();
 let _upcomingCalYear  = new Date().getFullYear();
 
@@ -3123,31 +3125,51 @@ function renderUpcoming() {
     ...airingUpcoming.map(u => airingScheduleHtml(u.title, u.season, u.platform, Number(u.airDay), u.firstAirDate, u.totalEp, 0))
   ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render: sub-views (Coming Soon / Airing / Calendar) ──────────────────
+  const notReleased = confirmed.filter(u => u.releaseDate > today);
+  const released    = confirmed.filter(u => u.releaseDate <= today);
+
+  const pill = (view, label, count) => `
+    <button onclick="_upView='${view}';renderUpcoming();"
+      style="border:1px solid ${_upView===view?'var(--accent)':'var(--border)'};background:${_upView===view?'var(--accent)':'#fff'};color:${_upView===view?'#fff':'var(--text)'};border-radius:999px;padding:7px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;">
+      ${label}${count!==undefined?` <span style="opacity:.75;">(${count})</span>`:''}
+    </button>`;
+
+  let viewHtml = '';
+  if(_upView === 'list') {
+    viewHtml = (notReleased.length||tba.length||released.length) ? `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${notReleased.map(upcomingCard).join('')}
+        ${tba.map(upcomingCard).join('')}
+        ${released.length ? `
+          <div style="border:1px dashed var(--border);border-radius:12px;padding:10px 14px;">
+            <button onclick="_upShowReleased=!_upShowReleased;renderUpcoming();" style="background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--textMid);padding:0;">
+              ${_upShowReleased?'▾':'▸'} Released (${released.length})
+            </button>
+            ${_upShowReleased?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">${released.map(upcomingCard).join('')}</div>`:''}
+          </div>`:''}
+      </div>
+    ` : `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;color:var(--textDim);font-size:13px;">No upcoming entries yet. Click <strong>+ Add Upcoming</strong> to get started.</div>`;
+  } else if(_upView === 'airing') {
+    viewHtml = airingHtml;
+  } else {
+    viewHtml = `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">${renderAiringCalendar()}</div>`;
+  }
+
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
       <div>
         <h2 style="font-family:'Lora',serif;font-size:22px;font-weight:700;color:var(--text);">Upcoming</h2>
         <p style="font-size:12px;color:var(--textDim);margin-top:2px;">Track future releases and airing schedules.</p>
       </div>
       <button class="btn-primary" onclick="openUpcomingModal(null)">+ Add Upcoming</button>
     </div>
-
-    ${confirmed.length||tba.length ? `
-      <h3 style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin:0 0 10px;">🗓️ Coming Soon</h3>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
-        ${confirmed.map(upcomingCard).join('')}
-        ${tba.map(upcomingCard).join('')}
-      </div>
-    ` : `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;color:var(--textDim);font-size:13px;margin-bottom:24px;">No upcoming entries yet. Click <strong>+ Add Upcoming</strong> to get started.</div>`}
-
-    <h3 style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin:0 0 10px;">📡 Currently Airing</h3>
-    <div style="margin-bottom:24px;">${airingHtml}</div>
-
-    <h3 style="font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--text);margin:0 0 10px;">📅 Airing Calendar</h3>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
-      ${renderAiringCalendar()}
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      ${pill('list','🗓️ Coming Soon', notReleased.length+tba.length)}
+      ${pill('airing','📡 Airing')}
+      ${pill('cal','📅 Calendar')}
     </div>
+    ${viewHtml}
   `;
 }
 
