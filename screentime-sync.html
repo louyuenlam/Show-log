@@ -137,7 +137,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.9 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.1 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2995,7 +2995,7 @@ function renderAiringCalendar() {
   const filterBar = `<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">${fPill('all','All')}${fPill('weekly','📡 Weekly episodes')}${fPill('releases','🎬 Releases')}</div>`;
   // Collect all airing shows from upcoming with a schedule AND from ongoing (watching)
   const airingShows = [
-    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate && u.totalEp).map(u => ({...u, currentEp: 0})),
+    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate).map(u => ({...u, currentEp: 0, _src:'up', _srcId:u.id})),
     ...ongoing.filter(o =>
       !o.completed && !o.givenUp &&
       o.completedType !== 'Movie' &&
@@ -3009,31 +3009,37 @@ function renderAiringCalendar() {
       totalEp: o.totalEp,
       currentEp: o.currentEp || 0,
       platform: o.platform,
-      _fromWatching: true
+      _fromWatching: true,
+      _src:'og', _srcId:o.id
     }))
   ];
 
   // Build a map of date → shows airing that day
   const calMap = {};
+  // End of the month currently being viewed — open-ended shows render up to here
+  const _ve = new Date(_upcomingCalYear, _upcomingCalMonth+1, 1);
+  const viewEnd = _ve.getFullYear() + '-' + String(_ve.getMonth()+1).padStart(2,'0') + '-01';
   airingShows.forEach(show => {
     const total = parseInt(show.totalEp) || 0;
     const startEp = parseInt(show.currentEp || 0) + 1;
-    for(let ep = startEp; ep <= total; ep++) {
+    const cap = total || 200; // no total known → open-ended, bounded by viewed month
+    for(let ep = startEp; ep <= cap; ep++) {
       const d = episodeDate(show.firstAirDate, show.airDay, ep, show.epsPerWeek);
       if(!d) continue;
+      if(!total && d >= viewEnd) break;
       if(!calMap[d]) calMap[d] = [];
-      calMap[d].push({ title: show.title, season: show.season, ep, platform: show.platform });
+      calMap[d].push({ title: show.title, season: show.season, ep, platform: show.platform, est: !total, src: show._src, srcId: show._srcId });
     }
   });
 
   // Also mark release-day drops from Upcoming entries (whole show/movie out same day)
   // — but skip entries that already render as a weekly schedule
   upcoming.forEach(u => {
-    if(u.airDay !== '' && u.firstAirDate && u.totalEp) return;
+    if(u.airDay !== '' && u.firstAirDate) return;
     const d = toYMD(u.releaseDate);
     if(!d) return;
     if(!calMap[d]) calMap[d] = [];
-    calMap[d].push({ title: u.title, season: u.season, ep: null, platform: u.platform, type: u.type, isRelease: true });
+    calMap[d].push({ title: u.title, season: u.season, ep: null, platform: u.platform, type: u.type, isRelease: true, src:'up', srcId: u.id });
   });
 
   // Apply view filter
@@ -3074,20 +3080,21 @@ function renderAiringCalendar() {
       <div onclick="openUpcomingModal(null,'${ymd}')" title="Click to add an upcoming entry on ${ymd}" style="cursor:pointer;min-height:60px;border-radius:6px;padding:4px;border:1px solid ${isToday?'var(--accent)':' var(--border)'};background:${isToday?'var(--accentPale,#fbe9df)':isPast?'#fafafa':'#fff'};">
         <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--textDim)':'var(--text)'};margin-bottom:2px;">${d}</div>
         ${events.map(ev=>{
-          if(!ev.isRelease) return `<div style="font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep}">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`;
+          const click = ev.src ? `onclick="event.stopPropagation();${ev.src==='up'?'openUpcomingModal':'openOngoingModal'}('${ev.srcId}')"` : '';
+          if(!ev.isRelease) return `<div ${click} style="cursor:pointer;font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep} — click to edit">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`;
           // Release chips: TV Show=green, Movie(streaming)=purple, Movie(Cinema)=burgundy
           const isCinema = ev.platform==='Cinema';
           const isMovie  = ev.type==='Movie';
           const bg   = isMovie ? (isCinema ? '#a05252' : '#8a7ab8') : 'var(--matcha,#7d9e7a)';
           const icon = isMovie ? (isCinema ? '🍿' : '🎬') : '📺';
           const kind = isMovie ? (isCinema ? 'movie · cinema' : 'movie') : 'TV show';
-          return `<div style="font-size:9px;background:${bg};color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)}${ev.season?' S'+esc(String(ev.season)):''} — ${kind} release">${icon} ${esc(ev.title.length>9?ev.title.slice(0,8)+'…':ev.title)}</div>`;
+          return `<div ${click} style="cursor:pointer;font-size:9px;background:${bg};color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)}${ev.season?' S'+esc(String(ev.season)):''} — ${kind} release — click to edit">${icon} ${esc(ev.title.length>9?ev.title.slice(0,8)+'…':ev.title)}</div>`;
         }).join('')}
       </div>`;
   }
   html += '</div>';
   html += `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">
-    <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">💡 Click any day to add an entry</span>
+    <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textDim);">💡 Click a day to add · click a show to edit</span>
     ${[['var(--accent)','Weekly episode'],['#7d9e7a','📺 TV show release'],['#8a7ab8','🎬 Movie (streaming)'],['#a05252','🍿 Movie (cinema)']]
       .map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textMid);"><span style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block;"></span>${l}</span>`).join('')}
   </div>`;
