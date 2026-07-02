@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.1</div>
+      <div id="header-sub">your watch journal · v2.3</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.1 · mobile</div>
+      <div id="drawer-version">v2.3 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -834,22 +834,26 @@ function renderUpcoming(){
     const calMap={};
     // Weekly episode drops from airing shows (Watching + Upcoming with schedules)
     const airingAll=[
-      ...ongoing.filter(o=>!o.completed&&!o.givenUp&&o.airDay!==''&&o.airDay!==null&&o.airDay!==undefined&&o.firstAirDate),
-      ...upcoming.filter(u=>u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate)
+      ...ongoing.filter(o=>!o.completed&&!o.givenUp&&o.airDay!==''&&o.airDay!==null&&o.airDay!==undefined&&o.firstAirDate).map(o=>({...o,_src:'og'})),
+      ...upcoming.filter(u=>u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate).map(u=>({...u,_src:'up',currentEp:0}))
     ];
+    const _ve=new Date(_upCalY,_upCalM+1,1);
+    const viewEnd=_ve.getFullYear()+'-'+String(_ve.getMonth()+1).padStart(2,'0')+'-01';
     airingAll.forEach(sh=>{
-      const tot=parseInt(sh.totalEp)||0; if(!tot) return;
+      const tot=parseInt(sh.totalEp)||0;
       const start=Math.max(1,parseInt(sh.currentEp||0)+1);
-      for(let ep=start;ep<=tot;ep++){
+      const cap=tot||200; // open-ended when total unknown
+      for(let ep=start;ep<=cap;ep++){
         const d=epDateCalc(sh.firstAirDate,Number(sh.airDay),ep,sh.epsPerWeek); if(!d) continue;
-        (calMap[d]=calMap[d]||[]).push({title:sh.title,ep,isRelease:false});
+        if(!tot&&d>=viewEnd) break;
+        (calMap[d]=calMap[d]||[]).push({title:sh.title,ep,isRelease:false,src:sh._src,srcId:sh.id});
       }
     });
     // Release-day drops (skip entries already shown as weekly schedules)
     upcoming.forEach(u=>{
-      if(u.airDay!==''&&u.firstAirDate&&u.totalEp) return;
+      if(u.airDay!==''&&u.firstAirDate) return;
       const d=toYMD(u.releaseDate); if(!d) return;
-      (calMap[d]=calMap[d]||[]).push({title:u.title,type:u.type,platform:u.platform,isRelease:true});
+      (calMap[d]=calMap[d]||[]).push({title:u.title,type:u.type,platform:u.platform,isRelease:true,src:'up',srcId:u.id});
     });
     // View filter
     if(_calFilter!=='all'){
@@ -870,11 +874,12 @@ function renderUpcoming(){
       cells+=`<div onclick="openUpcomingModal(null,'${ymd}')" style="cursor:pointer;min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};background:${isToday?'#fbe9df':isPast?'#faf6ee':'#fff'};">
         <div style="font-size:10px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--ink-dim)':'var(--ink)'};">${d}</div>
         ${evs.map(ev=>{
-          if(!ev.isRelease) return `<div style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} E${ev.ep}</div>`;
+          const click=ev.src?`onclick="event.stopPropagation();${ev.src==='up'?'openUpcomingModal':'openOngoingModal'}('${ev.srcId}')"`:'';
+          if(!ev.isRelease) return `<div ${click} style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} E${ev.ep}</div>`;
           const isMv=ev.type==='Movie', isCin=ev.platform==='Cinema';
           const bg=isMv?(isCin?'#a05252':'#8a7ab8'):'#7d9e7a';
           const ic=isMv?(isCin?'🍿':'🎬'):'📺';
-          return `<div style="font-size:8px;background:${bg};color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${ic}${esc(ev.title.length>6?ev.title.slice(0,5)+'…':ev.title)}</div>`;
+          return `<div ${click} style="font-size:8px;background:${bg};color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${ic}${esc(ev.title.length>6?ev.title.slice(0,5)+'…':ev.title)}</div>`;
         }).join('')}
       </div>`;
     }
@@ -890,7 +895,7 @@ function renderUpcoming(){
         ${['S','M','T','W','T','F','S'].map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:var(--ink-dim);">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cells}</div>
-      <div style="font-size:9px;color:var(--ink-dim);margin-top:6px;">💡 Tap any day to add an entry</div>
+      <div style="font-size:9px;color:var(--ink-dim);margin-top:6px;">💡 Tap a day to add · tap a show to edit</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
         ${[['var(--accent)','Weekly ep'],['#7d9e7a','📺 TV'],['#8a7ab8','🎬 Movie'],['#a05252','🍿 Cinema']]
           .map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--ink-soft);"><span style="width:8px;height:8px;border-radius:2px;background:${c};"></span>${l}</span>`).join('')}
