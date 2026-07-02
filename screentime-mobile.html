@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.6</div>
+      <div id="header-sub">your watch journal · v2.7</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.6 · mobile</div>
+      <div id="drawer-version">v2.7 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -374,7 +374,8 @@ function normOngoing(rows){ return (rows||[]).map(o=>({
   score:o.score!==''&&o.score!=null?Number(o.score):null,
   review:String(o.review||''), notes:String(o.notes||''), posterUrl:String(o.posterUrl||''),
   airDay:o.airDay!==undefined&&o.airDay!==''?Number(o.airDay):'',
-  firstAirDate:toYMD(o.firstAirDate)||''
+  firstAirDate:toYMD(o.firstAirDate)||'',
+  epsPerWeek:String(o.epsPerWeek||'1'), premiereEps:String(o.premiereEps||'1'), startEp:String(o.startEp||'1')
 })).filter(o=>o.title); }
 
 function normWishlist(rows){ return (rows||[]).map(w=>({
@@ -505,6 +506,17 @@ function autoMergeUpcoming(){
   const key=t=>String(t||'').trim().toLowerCase();
   const merged=upcoming.filter(u=>ongoing.some(o=>key(o.title)===key(u.title)&&String(o.season||'')===String(u.season||'')&&!o.givenUp));
   if(!merged.length) return;
+  // Hand the airing schedule to the Watching row so remaining eps stay on the calendar
+  merged.forEach(u=>{
+    if(u.airDay===''||!u.firstAirDate) return;
+    const o=ongoing.find(x=>key(x.title)===key(u.title)&&String(x.season||'')===String(u.season||'')&&!x.givenUp);
+    if(!o||(o.airDay!==''&&o.firstAirDate)) return;
+    const upd={...o,airDay:u.airDay,firstAirDate:u.firstAirDate,
+      epsPerWeek:u.epsPerWeek||'1',premiereEps:u.premiereEps||'1',startEp:u.startEp||'1',
+      totalEp:o.totalEp||u.totalEp||''};
+    ongoing=ongoing.map(x=>String(x.id)===String(o.id)?upd:x);
+    pushUpsert('ONGOING',upd);
+  });
   upcoming=upcoming.filter(u=>!merged.includes(u));
   saveCache(); merged.forEach(u=>pushDelete('UPCOMING',u.id));
 }
