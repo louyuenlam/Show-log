@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.2 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.3 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -640,6 +640,7 @@ function normaliseUpcoming(rows) {
     firstAirDate: toYMD(u.firstAirDate) || '',
     totalEp:      String(u.totalEp     || ''),
     epsPerWeek:   String(u.epsPerWeek  || '1'),
+    premiereEps:  String(u.premiereEps || '1'),
     notes:        String(u.notes       || '')
   })).filter(u => u.title);
 }
@@ -2809,9 +2810,10 @@ function todayYMD() {
 }
 
 // Given a firstAirDate (YYYY-MM-DD) and airDay (0-6), compute the date of episodeNum (1-based)
-function episodeDate(firstAirDate, airDay, episodeNum, epsPerWeek) {
+function episodeDate(firstAirDate, airDay, episodeNum, epsPerWeek, premiereEps) {
   if(!firstAirDate || airDay === '') return null;
   const epw = Math.max(1, parseInt(epsPerWeek) || 1);
+  const prem = Math.max(1, parseInt(premiereEps) || 1);
   const base = new Date(firstAirDate + 'T12:00:00');
   // Snap base to the correct airDay
   const baseDow = base.getDay();
@@ -2819,7 +2821,9 @@ function episodeDate(firstAirDate, airDay, episodeNum, epsPerWeek) {
   const ep1 = new Date(base);
   ep1.setDate(ep1.getDate() + diff);
   const target = new Date(ep1);
-  target.setDate(ep1.getDate() + Math.floor((episodeNum - 1) / epw) * 7);
+  // First `prem` episodes drop on premiere day; then `epw` per week
+  const weeks = episodeNum <= prem ? 0 : Math.floor((episodeNum - prem - 1) / epw) + 1;
+  target.setDate(ep1.getDate() + weeks * 7);
   return target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
 }
 
@@ -2845,6 +2849,17 @@ let _upcomingCalMonth = new Date().getMonth();
 let _upcomingCalYear  = new Date().getFullYear();
 
 // ── Save / Delete ─────────────────────────────────────────────────────────────
+// Visibly pre-fill the airing schedule from the release date (only when empty)
+function upAutoFillSchedule() {
+  const typ = document.getElementById('up-type')?.value;
+  const rd  = document.getElementById('up-releasedate')?.value;
+  const ad  = document.getElementById('up-airday');
+  const fa  = document.getElementById('up-firstairdate');
+  if(typ !== 'TV Show' || !rd || !ad || ad.value !== '' || (fa && fa.value)) return;
+  ad.value = String(new Date(rd + 'T12:00:00').getDay());
+  if(fa) fa.value = rd;
+}
+
 function saveUpcomingEntry() {
   const title = document.getElementById('up-title').value.trim();
   if(!title) { alert('Please enter a title'); return; }
@@ -2869,15 +2884,9 @@ function saveUpcomingEntry() {
     firstAirDate: firstAirDate || '',
     totalEp:      totalEp || '',
     epsPerWeek:   String(Math.max(1, parseInt(epsPerWeek)||1)),
+    premiereEps:  String(Math.max(1, parseInt(document.getElementById('up-premiereeps')?.value)||1)),
     notes
   };
-
-  // Auto-derive weekly schedule for TV shows: release date + total eps
-  // is enough — episodes recur on the release weekday automatically.
-  if(entry.type === 'TV Show' && entry.releaseDate && entry.totalEp && entry.airDay === '') {
-    entry.airDay = new Date(entry.releaseDate + 'T12:00:00').getDay();
-    entry.firstAirDate = entry.releaseDate;
-  }
 
   if(_upcomingEditId) {
     upcoming = upcoming.map(u => String(u.id) === String(_upcomingEditId) ? entry : u);
@@ -2958,7 +2967,7 @@ function openUpcomingModal(id, prefillDate) {
     <div style="background:var(--bgAlt,#f9f1e3);border-radius:10px;padding:12px;margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
       <label style="font-size:11px;color:var(--textDim);">Confirmed release date (leave empty if TBA)</label>
-      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||_upPrefillDate||''}" style="margin-bottom:8px;"/>
+      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||_upPrefillDate||''}" onchange="upAutoFillSchedule()" style="margin-bottom:8px;"/>
       <label style="font-size:11px;color:var(--textDim);">Year only (if date unknown)</label>
       <input id="up-releaseyear" class="modal-input" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/>
     </div>
@@ -2975,7 +2984,11 @@ function openUpcomingModal(id, prefillDate) {
           <input id="up-firstairdate" class="modal-input" type="date" value="${u?.firstAirDate||''}"/>
         </div>
         <div>
-          <label class="label">Episodes per week</label>
+          <label class="label">Eps on premiere</label>
+          <input id="up-premiereeps" class="modal-input" type="number" min="1" max="20" value="${u?.premiereEps||1}" title="How many episodes drop on the first air date"/>
+        </div>
+        <div>
+          <label class="label">Eps per week after</label>
           <input id="up-epsperweek" class="modal-input" type="number" min="1" max="7" value="${u?.epsPerWeek||1}" placeholder="1"/>
         </div>
       </div>
@@ -3042,7 +3055,7 @@ function renderAiringCalendar() {
     const startEp = parseInt(show.currentEp || 0) + 1;
     const cap = total || 200; // no total known → open-ended, bounded by viewed month
     for(let ep = startEp; ep <= cap; ep++) {
-      const d = episodeDate(show.firstAirDate, show.airDay, ep, show.epsPerWeek);
+      const d = episodeDate(show.firstAirDate, show.airDay, ep, show.epsPerWeek, show.premiereEps);
       if(!d) continue;
       if(!total && d >= viewEnd) break;
       if(!calMap[d]) calMap[d] = [];
