@@ -137,7 +137,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.5 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v3.6 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2974,7 +2974,7 @@ function renderAiringCalendar() {
     const d = toYMD(u.releaseDate);
     if(!d) return;
     if(!calMap[d]) calMap[d] = [];
-    calMap[d].push({ title: u.title, season: u.season, ep: null, platform: u.platform, isRelease: true });
+    calMap[d].push({ title: u.title, season: u.season, ep: null, platform: u.platform, type: u.type, isRelease: true });
   });
 
   // Render month calendar
@@ -3006,12 +3006,23 @@ function renderAiringCalendar() {
     html += `
       <div style="min-height:60px;border-radius:6px;padding:4px;border:1px solid ${isToday?'var(--accent)':' var(--border)'};background:${isToday?'var(--accentPale,#fbe9df)':isPast?'#fafafa':'#fff'};">
         <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--textDim)':'var(--text)'};margin-bottom:2px;">${d}</div>
-        ${events.map(ev=>ev.isRelease
-          ?`<div style="font-size:9px;background:var(--matcha,#7d9e7a);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)}${ev.season?' S'+esc(String(ev.season)):''} — releases">🎬 ${esc(ev.title.length>9?ev.title.slice(0,8)+'…':ev.title)}</div>`
-          :`<div style="font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep}">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`).join('')}
+        ${events.map(ev=>{
+          if(!ev.isRelease) return `<div style="font-size:9px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)} E${ev.ep}">${esc(ev.title.length>10?ev.title.slice(0,9)+'…':ev.title)} E${ev.ep}</div>`;
+          // Release chips: TV Show=green, Movie(streaming)=purple, Movie(Cinema)=burgundy
+          const isCinema = ev.platform==='Cinema';
+          const isMovie  = ev.type==='Movie';
+          const bg   = isMovie ? (isCinema ? '#a05252' : '#8a7ab8') : 'var(--matcha,#7d9e7a)';
+          const icon = isMovie ? (isCinema ? '🍿' : '🎬') : '📺';
+          const kind = isMovie ? (isCinema ? 'movie · cinema' : 'movie') : 'TV show';
+          return `<div style="font-size:9px;background:${bg};color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${esc(ev.title)}${ev.season?' S'+esc(String(ev.season)):''} — ${kind} release">${icon} ${esc(ev.title.length>9?ev.title.slice(0,8)+'…':ev.title)}</div>`;
+        }).join('')}
       </div>`;
   }
   html += '</div>';
+  html += `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">
+    ${[['var(--accent)','Weekly episode'],['#7d9e7a','📺 TV show release'],['#8a7ab8','🎬 Movie (streaming)'],['#a05252','🍿 Movie (cinema)']]
+      .map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--textMid);"><span style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block;"></span>${l}</span>`).join('')}
+  </div>`;
   return html;
 }
 
