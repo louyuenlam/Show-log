@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.4</div>
+      <div id="header-sub">your watch journal · v2.5</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.4 · mobile</div>
+      <div id="drawer-version">v2.5 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -857,6 +857,18 @@ function renderUpcoming(){
       const d=toYMD(u.releaseDate); if(!d) return;
       (calMap[d]=calMap[d]||[]).push({title:u.title,type:u.type,platform:u.platform,isRelease:true,src:'up',srcId:u.id});
     });
+    // Merge same-show episode chips on the same day into ranges (e.g. E1-2)
+    for(const d in calMap){
+      const merged=[], byShow={};
+      for(const ev of calMap[d]){
+        if(ev.isRelease||ev.ep==null){ merged.push(ev); continue; }
+        const k=(ev.src||'')+'|'+(ev.srcId||'')+'|'+ev.title;
+        if(!byShow[k]){ byShow[k]={...ev,epFrom:ev.ep,epTo:ev.ep}; merged.push(byShow[k]); }
+        else{ byShow[k].epFrom=Math.min(byShow[k].epFrom,ev.ep); byShow[k].epTo=Math.max(byShow[k].epTo,ev.ep); }
+      }
+      merged.forEach(ev=>{ if(ev.epFrom!==undefined) ev.epLabel=ev.epFrom===ev.epTo?'E'+ev.epFrom:'E'+ev.epFrom+'-'+ev.epTo; });
+      calMap[d]=merged;
+    }
     // View filter
     if(_calFilter!=='all'){
       for(const d in calMap){
@@ -877,7 +889,7 @@ function renderUpcoming(){
         <div style="font-size:10px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--ink-dim)':'var(--ink)'};">${d}</div>
         ${evs.map(ev=>{
           const click=ev.src?`onclick="event.stopPropagation();${ev.src==='up'?'openUpcomingModal':'openOngoingModal'}('${ev.srcId}')"`:'';
-          if(!ev.isRelease) return `<div ${click} style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} E${ev.ep}</div>`;
+          if(!ev.isRelease) return `<div ${click} style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} ${ev.epLabel||('E'+ev.ep)}</div>`;
           const isMv=ev.type==='Movie', isCin=ev.platform==='Cinema';
           const bg=isMv?(isCin?'#a05252':'#8a7ab8'):'#7d9e7a';
           const ic=isMv?(isCin?'🍿':'🎬'):'📺';
