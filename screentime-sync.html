@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.6 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.7 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -838,7 +838,38 @@ function renderTab(idx) {
   else if(idx===5) renderStats();
   else if(idx===6) renderUpcoming();
 }
-function rerender() { autoMergeUpcoming(); updateStats(); renderTab(currentTab); }
+function rerender() { dedupeOngoing(); autoMergeUpcoming(); updateStats(); renderTab(currentTab); }
+
+// Merge accidental duplicate Watching/Completed rows (same title+season+type)
+function dedupeOngoing() {
+  const seen = {};
+  const dupes = [];
+  for(const o of ongoing) {
+    const k = String(o.title||'').trim().toLowerCase() + '||' + String(o.season||'') + '||' + (o.completedType||'');
+    if(!seen[k]) { seen[k] = o; continue; }
+    // Keep the row with more information; merge the rest in
+    const a = seen[k], b = o;
+    const score = r => (r.score?2:0) + (r.review?2:0) + (r.completed?1:0) + (Number(r.currentEp)||0)/1000;
+    const keep = score(b) > score(a) ? b : a;
+    const drop = keep === a ? b : a;
+    // Merge any fields the kept row is missing
+    for(const f of ['score','review','notes','posterUrl','airDay','firstAirDate','totalEp','epsPerWeek','premiereEps','startEp','completedDate','platform']) {
+      if((keep[f]===''||keep[f]==null) && drop[f]!=='' && drop[f]!=null) keep[f] = drop[f];
+    }
+    if((Number(drop.currentEp)||0) > (Number(keep.currentEp)||0)) keep.currentEp = drop.currentEp;
+    if(drop.completed && !keep.completed) { keep.completed = true; keep.completedDate = keep.completedDate || drop.completedDate; }
+    seen[k] = keep;
+    dupes.push(drop);
+  }
+  if(!dupes.length) return;
+  ongoing = Object.values(seen);
+  save('ongoing', ongoing);
+  if(hasSheetsUrl()) {
+    dupes.forEach(d => pushDelete('ONGOING', d.id));
+    Object.values(seen).forEach(k => { if(dupes.some(d => String(d.title).trim().toLowerCase()===String(k.title).trim().toLowerCase())) pushUpsert('ONGOING', k); });
+    showSyncToast('🧹 Merged ' + dupes.length + ' duplicate show' + (dupes.length>1?'s':''));
+  }
+}
 
 // Auto-remove Upcoming entries once the same title+season is being watched
 function autoMergeUpcoming() {
