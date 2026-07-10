@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.7 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.8 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -424,7 +424,7 @@ const CACHE_WISHLIST   = 'sc:wishlist';
 const CACHE_UPCOMING   = 'sc:upcoming';
 const CACHE_MODIFIED   = 'sc:lastModified';
 
-let _sheetsUrl = localStorage.getItem(SHEETS_URL_KEY) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
+let _sheetsUrl = localStorage.getItem(SHEETS_URL_KEY) || '';
 let _syncing   = false;
 let _dirty     = false; // local changes pending push
 
