@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v2.9</div>
+      <div id="header-sub">your watch journal · v3.0</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v2.9 · mobile</div>
+      <div id="drawer-version">v3.0 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -306,7 +306,7 @@ let _upCalM=new Date().getMonth(), _upCalY=new Date().getFullYear();
 let _upView='cal', _upShowReleased=false, _calFilter='all';
 
 let entries = [], ongoing = [], wishlist = [], upcoming = [];
-let _sheetsUrl = localStorage.getItem(SHEETS_URL) || 'https://script.google.com/macros/s/AKfycbz4ytMT8IMNktdDx1XzsEutcKf8qNZ3X6RI4g6KK1A9_ys1eFDtmXlcya3za4sUEQ0A/exec';
+let _sheetsUrl = localStorage.getItem(SHEETS_URL) || '';
 
 // Calendar state
 let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
