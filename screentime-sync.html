@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.8 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.9 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -218,7 +218,8 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
           <option value="">— Type manually —</option>
         </select>
       </div>
-      <div><label class="label">Title</label><input class="input-field" id="ef-title" placeholder="e.g. Shrinking" oninput="onTitleChange()"/></div>
+      <div><label class="label">Title</label><input class="input-field" id="ef-title" placeholder="e.g. Shrinking" oninput="onTitleChange()"/>
+        <div id="ef-suggest" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;"></div></div>
       <div class="grid-2">
         <div><label class="label">Type</label>
           <select class="input-field" id="ef-type" onchange="onTypeChange()">
@@ -1530,7 +1531,31 @@ function onTypeChange() {
   document.getElementById('ef-tv-fields').classList.toggle('hidden', !isTV);
 }
 
-function onTitleChange() { onSeasonChange(); }
+function onTitleChange() { entryTitleSuggest(); onSeasonChange(); }
+
+// Suggest matches from Upcoming/Wishlist as the title is typed; click to fill
+function entryTitleSuggest() {
+  const box = document.getElementById('ef-suggest'); if(!box) return;
+  const q = (document.getElementById('ef-title')?.value||'').trim().toLowerCase();
+  if(q.length < 2) { box.innerHTML=''; return; }
+  const pool = [
+    ...upcoming.map(u=>({...u,_pool:'🔮'})),
+    ...wishlist.map(w=>({...w,_pool:'⭐'}))
+  ].filter(x=>String(x.title||'').toLowerCase().includes(q)).slice(0,3);
+  box.innerHTML = pool.map(x=>`<button type="button" onclick="fillFromSuggest('${x._pool}','${String(x.id)}')" style="background:var(--accentBg,#fbe9df);border:1px solid var(--accentLight,#f09070);border-radius:999px;padding:4px 11px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--accent);">${x._pool} ${esc(x.title)}${x.season?' S'+esc(String(x.season)):''}</button>`).join('');
+}
+function fillFromSuggest(pool, id) {
+  const src = pool==='🔮' ? upcoming.find(x=>String(x.id)===String(id)) : wishlist.find(x=>String(x.id)===String(id));
+  if(!src) return;
+  document.getElementById('ef-title').value = src.title;
+  if(src.type) document.getElementById('ef-type').value = src.type;
+  const plat = document.getElementById('ef-platform');
+  if(src.platform && plat && [...plat.options].some(op=>op.value===src.platform)) plat.value = src.platform;
+  if(src.season !== undefined) document.getElementById('ef-season').value = src.season||'';
+  if(src.totalEp) document.getElementById('ef-totalep').value = src.totalEp;
+  document.getElementById('ef-suggest').innerHTML='';
+  onSeasonChange();
+}
 function onSeasonChange() {
   const title = toTitle(document.getElementById('ef-title').value.trim());
   const seasonInput = document.getElementById('ef-season').value;
