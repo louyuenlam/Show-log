@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v3.0</div>
+      <div id="header-sub">your watch journal · v3.1</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v3.0 · mobile</div>
+      <div id="drawer-version">v3.1 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -1114,7 +1114,8 @@ function buildEntryModal(e){
           .slice(0,12)
           .map(o=>`<button type="button" onclick="pickWatching('${String(o.id)}')" style="background:var(--cream-dark);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:11px;line-height:1.3;font-family:inherit;color:var(--ink-soft);white-space:nowrap;">${esc(o.title.length>22?o.title.slice(0,21)+'…':o.title)}${o.season?' S'+esc(String(o.season)):''}</button>`).join('')}
       </div></div>` : ''}
-    <div class="field"><label>Title</label><input id="en-title" value="${esc(e?.title||'')}" placeholder="Show or movie title"/></div>
+    <div class="field"><label>Title</label><input id="en-title" value="${esc(e?.title||'')}" placeholder="Show or movie title" oninput="entryTitleSuggest()"/>
+      <div id="en-suggest" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;"></div></div>
     <div class="grid-2">
       <div class="field"><label>Type</label><select id="en-type" onchange="entTypeChange()">${typeOpts(e?.type)}</select></div>
       <div class="field"><label>Platform</label><select id="en-platform">${platOpts(e?.platform)}</select></div>
@@ -1203,6 +1204,29 @@ function updateOngoingFromEntry(entry){
       completed:false,completedDate:'',givenUp:false,givenUpDate:'',givenUpReason:'',score:null,review:'',notes:'',posterUrl:'',airDay:'',firstAirDate:''};
     ongoing.push(item); pushUpsert('ONGOING',item);
   }
+}
+
+// Suggest matches from Upcoming/Wishlist as the title is typed; tap to fill
+function entryTitleSuggest(){
+  const box=document.getElementById('en-suggest'); if(!box) return;
+  const q=(document.getElementById('en-title')?.value||'').trim().toLowerCase();
+  if(q.length<2){ box.innerHTML=''; return; }
+  const pool=[
+    ...upcoming.map(u=>({...u,_pool:'🔮'})),
+    ...wishlist.map(w=>({...w,_pool:'⭐'}))
+  ].filter(x=>String(x.title||'').toLowerCase().includes(q)).slice(0,3);
+  box.innerHTML=pool.map(x=>`<button type="button" onclick="fillFromSuggest('${x._pool}','${String(x.id)}')" style="background:var(--accent-pale);border:1px solid var(--accent-light);border-radius:999px;padding:5px 11px;font-size:11px;line-height:1.3;font-family:inherit;color:var(--accent-dark);">${x._pool} ${esc(x.title)}${x.season?' S'+esc(String(x.season)):''}</button>`).join('');
+}
+function fillFromSuggest(pool,id){
+  const src=pool==='🔮'?upcoming.find(x=>String(x.id)===String(id)):wishlist.find(x=>String(x.id)===String(id));
+  if(!src) return;
+  document.getElementById('en-title').value=src.title;
+  if(src.type){ document.getElementById('en-type').value=src.type; entTypeChange(); }
+  const plat=document.getElementById('en-platform');
+  if(src.platform&&[...plat.options].some(op=>op.value===src.platform)) plat.value=src.platform;
+  if(src.season!==undefined) document.getElementById('en-season').value=src.season||'';
+  if(src.totalEp) document.getElementById('en-totalep').value=src.totalEp;
+  document.getElementById('en-suggest').innerHTML='';
 }
 
 function pickWatching(id){
