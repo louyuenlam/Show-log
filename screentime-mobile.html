@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v3.2</div>
+      <div id="header-sub">your watch journal · v3.3</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v3.2 · mobile</div>
+      <div id="drawer-version">v3.3 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -501,24 +501,39 @@ function switchTab(tab){
   document.getElementById('content').scrollTop=0;
 }
 
+function upcomingWatchMatch(u){
+  const key=t=>String(t||'').trim().toLowerCase();
+  return ongoing.find(o=>key(o.title)===key(u.title)&&String(o.season||'')===String(u.season||''));
+}
+function upcomingActiveWatch(u){
+  const o=upcomingWatchMatch(u);
+  return (o&&!o.completed&&!o.givenUp&&o.completedType!=='Movie')?o:null;
+}
+// Movies: removed from Upcoming once watched. TV: stays (📺 Watching badge)
+// until completed/given up; schedule handed to the Watching row.
 function autoMergeUpcoming(){
   if(!upcoming.length) return;
-  const key=t=>String(t||'').trim().toLowerCase();
-  const merged=upcoming.filter(u=>ongoing.some(o=>key(o.title)===key(u.title)&&String(o.season||'')===String(u.season||'')&&!o.givenUp));
-  if(!merged.length) return;
-  // Hand the airing schedule to the Watching row so remaining eps stay on the calendar
-  merged.forEach(u=>{
+  const toRemove=upcoming.filter(u=>{
+    const o=upcomingWatchMatch(u);
+    if(!o) return false;
+    if(o.completedType==='Movie'||u.type==='Movie') return true;
+    return o.completed||o.givenUp;
+  });
+  upcoming.forEach(u=>{
+    if(toRemove.includes(u)) return;
     if(u.airDay===''||!u.firstAirDate) return;
-    const o=ongoing.find(x=>key(x.title)===key(u.title)&&String(x.season||'')===String(u.season||'')&&!x.givenUp);
-    if(!o||(o.airDay!==''&&o.firstAirDate)) return;
+    const o=upcomingActiveWatch(u);
+    if(!o) return;
+    if(o.airDay!==''&&o.firstAirDate) return;
     const upd={...o,airDay:u.airDay,firstAirDate:u.firstAirDate,
       epsPerWeek:u.epsPerWeek||'1',premiereEps:u.premiereEps||'1',startEp:u.startEp||'1',
       totalEp:o.totalEp||u.totalEp||''};
     ongoing=ongoing.map(x=>String(x.id)===String(o.id)?upd:x);
     pushUpsert('ONGOING',upd);
   });
-  upcoming=upcoming.filter(u=>!merged.includes(u));
-  saveCache(); merged.forEach(u=>pushDelete('UPCOMING',u.id));
+  if(!toRemove.length) return;
+  upcoming=upcoming.filter(u=>!toRemove.includes(u));
+  saveCache(); toRemove.forEach(u=>pushDelete('UPCOMING',u.id));
 }
 function dedupeOngoing(){
   const seen={}, dupes=[];
@@ -804,7 +819,9 @@ function renderUpcoming(){
   function upCard(u){
     const hasDate=!!u.releaseDate, released=hasDate&&u.releaseDate<=today;
     const days=hasDate?daysUntil(u.releaseDate):null;
-    const badge=released?`<span class="upcoming-badge released">Released</span>`:
+    const w=upcomingActiveWatch(u);
+    const badge=w?`<span class="upcoming-badge" style="background:#e4ecf7;color:#4a6fa5;">📺 Watching${w.currentEp?` · Ep ${esc(w.currentEp)}${w.totalEp?'/'+esc(w.totalEp):''}`:''}</span>`:
+      released?`<span class="upcoming-badge released">Released</span>`:
       hasDate?`<span class="upcoming-badge soon">${days===0?'Today!':'in '+days+'d'}</span>`:
       `<span class="upcoming-badge tba">TBA ${u.releaseYear||''}</span>`;
     const sub=[u.platform,u.season?'S'+u.season:'',hasDate?fmtDate(u.releaseDate):''].filter(Boolean).join(' · ');
@@ -829,7 +846,7 @@ function renderUpcoming(){
 
   // Airing shows
   const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate);
-  const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate);
+  const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate&&!upcomingActiveWatch(u));
 
   function airingCard(s,ongId){
     const {title,season,platform,firstAirDate,totalEp,currentEp}=s;
@@ -876,7 +893,7 @@ function renderUpcoming(){
     // Weekly episode drops from airing shows (Watching + Upcoming with schedules)
     const airingAll=[
       ...ongoing.filter(o=>!o.completed&&!o.givenUp&&o.airDay!==''&&o.airDay!==null&&o.airDay!==undefined&&o.firstAirDate).map(o=>({...o,_src:'og'})),
-      ...upcoming.filter(u=>u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate).map(u=>({...u,_src:'up',currentEp:0}))
+      ...upcoming.filter(u=>u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate&&!upcomingActiveWatch(u)).map(u=>({...u,_src:'up',currentEp:0}))
     ];
     const _ve=new Date(_upCalY,_upCalM+1,1);
     const viewEnd=_ve.getFullYear()+'-'+String(_ve.getMonth()+1).padStart(2,'0')+'-01';
@@ -894,6 +911,7 @@ function renderUpcoming(){
     // Release-day drops (skip entries already shown as weekly schedules)
     upcoming.forEach(u=>{
       if(u.airDay!==''&&u.firstAirDate) return;
+      if(upcomingActiveWatch(u)) return;
       const d=toYMD(u.releaseDate); if(!d) return;
       (calMap[d]=calMap[d]||[]).push({title:u.title,type:u.type,platform:u.platform,isRelease:true,src:'up',srcId:u.id});
     });
@@ -956,8 +974,8 @@ function renderUpcoming(){
       </div>`;
   }
 
-  const notReleased=confirmed.filter(u=>u.releaseDate>today);
-  const released=confirmed.filter(u=>u.releaseDate<=today);
+  const notReleased=confirmed.filter(u=>u.releaseDate>today||upcomingActiveWatch(u));
+  const released=confirmed.filter(u=>u.releaseDate<=today&&!upcomingActiveWatch(u));
 
   const pillBtn=(v,l,c)=>`<button class="pill${_upView===v?' active':''}" onclick="_upView='${v}';renderUpcoming();">${l}${c!==undefined?' ('+c+')':''}</button>`;
 
