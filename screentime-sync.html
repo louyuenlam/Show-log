@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.3 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.4 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -293,6 +293,17 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
             <div><label class="label">First episode date</label>
               <input class="input-field" id="of-firstairdate" type="date"/>
             </div>
+          </div>
+          <div class="grid-2" style="margin-top:8px;">
+            <div><label class="label">Eps per week</label>
+              <input class="input-field" id="of-epsperweek" type="number" min="1" max="7" placeholder="1"/>
+            </div>
+            <div><label class="label">Eps on premiere</label>
+              <input class="input-field" id="of-premiereeps" type="number" min="1" placeholder="1"/>
+            </div>
+          </div>
+          <div style="margin-top:8px;"><label class="label">First ep # (split seasons)</label>
+            <input class="input-field" id="of-startep" type="number" min="1" placeholder="1"/>
           </div>
         </div>
       </div>
@@ -1847,6 +1858,9 @@ function openOngoingModal(editId) {
     document.getElementById('of-review').value = o.review||'';
     document.getElementById('of-airday').value = o.airDay !== undefined && o.airDay !== '' ? String(o.airDay) : '';
     document.getElementById('of-firstairdate').value = o.firstAirDate||'';
+    document.getElementById('of-epsperweek').value = o.epsPerWeek||'1';
+    document.getElementById('of-premiereeps').value = o.premiereEps||'1';
+    document.getElementById('of-startep').value = o.startEp||'1';
     setOngoingScore(o.score||0);
     onCompletedChange();
     document.getElementById('of-review-section').classList.toggle('hidden', !o.completed);
@@ -1867,6 +1881,9 @@ function openOngoingModal(editId) {
     document.getElementById('of-review').value='';
     document.getElementById('of-airday').value='';
     document.getElementById('of-firstairdate').value='';
+    document.getElementById('of-epsperweek').value='1';
+    document.getElementById('of-premiereeps').value='1';
+    document.getElementById('of-startep').value='1';
     setOngoingScore(0);
     onCompletedChange();
   }
@@ -1925,7 +1942,10 @@ function saveOngoing() {
     review: document.getElementById('of-review').value,
     givenUp: false, givenUpDate: '',
     airDay: document.getElementById('of-airday').value !== '' ? Number(document.getElementById('of-airday').value) : '',
-    firstAirDate: document.getElementById('of-firstairdate').value || ''
+    firstAirDate: document.getElementById('of-firstairdate').value || '',
+    epsPerWeek: String(Math.max(1, parseInt(document.getElementById('of-epsperweek')?.value)||1)),
+    premiereEps: String(Math.max(1, parseInt(document.getElementById('of-premiereeps')?.value)||1)),
+    startEp: String(Math.max(1, parseInt(document.getElementById('of-startep')?.value)||1))
   };
 
   if(editId) {
