@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v3.1</div>
+      <div id="header-sub">your watch journal · v3.2</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v3.1 · mobile</div>
+      <div id="drawer-version">v3.2 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -828,14 +828,19 @@ function renderUpcoming(){
   }
 
   // Airing shows
-  const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate&&o.totalEp);
-  const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate&&u.totalEp);
+  const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate);
+  const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate);
 
-  function airingCard(title,season,platform,airDay,firstAirDate,totalEp,currentEp,ongId){
-    const tot=parseInt(totalEp)||0, start=Math.max(1,parseInt(currentEp||0)+1);
+  function airingCard(s,ongId){
+    const {title,season,platform,firstAirDate,totalEp,currentEp}=s;
+    const airDay=Number(s.airDay);
+    const tot=parseInt(totalEp)||0;
+    const base=Math.max(1,parseInt(s.startEp)||1);
+    const start=Math.max(base,parseInt(currentEp||0)+1);
+    const cap=tot||(start+7); // no total known → show next 8 episodes
     let rows='';
-    for(let ep=start;ep<=tot;ep++){
-      const d=epDateCalc(firstAirDate,airDay,ep); if(!d) continue;
+    for(let ep=start;ep<=cap;ep++){
+      const d=epDateCalc(firstAirDate,airDay,ep-base+1,s.epsPerWeek,s.premiereEps); if(!d) continue;
       const past=d<today, istoday=d===today, days=daysUntil(d);
       rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
         <span style="color:${past?'var(--ink-dim)':istoday?'var(--accent)':'var(--ink)'};">Ep ${ep}</span>
@@ -846,8 +851,8 @@ function renderUpcoming(){
     // If the next unwatched episode has already aired, offer a one-tap log
     let logBtn='';
     if(ongId){
-      const nextEp=Math.max(1,parseInt(currentEp||0)+1);
-      const nd=epDateCalc(firstAirDate,airDay,nextEp,1,1);
+      const nextEp=Math.max(base,parseInt(currentEp||0)+1);
+      const nd=epDateCalc(firstAirDate,airDay,nextEp-base+1,s.epsPerWeek,s.premiereEps);
       if(nd&&nd<=today&&(!tot||nextEp<=tot)){
         logBtn=`<button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="logNextEp('${ongId}')">▶ Log Ep ${nextEp}</button>`;
       }
@@ -861,8 +866,8 @@ function renderUpcoming(){
   }
 
   const airingHtml=[
-    ...airingOngoing.map(o=>airingCard(o.title,o.season,o.platform,Number(o.airDay),o.firstAirDate,o.totalEp,o.currentEp||0,String(o.id))),
-    ...airingUpcoming.map(u=>airingCard(u.title,u.season,u.platform,Number(u.airDay),u.firstAirDate,u.totalEp,0,null))
+    ...airingOngoing.map(o=>airingCard(o,String(o.id))),
+    ...airingUpcoming.map(u=>airingCard({...u,currentEp:0},null))
   ].join('')||'<div class="empty"><div class="empty-text">No airing schedules set up yet.</div></div>';
 
   // ── Monthly airing calendar ──
