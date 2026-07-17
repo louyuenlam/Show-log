@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v3.3</div>
+      <div id="header-sub">your watch journal · v3.5</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v3.3 · mobile</div>
+      <div id="drawer-version">v3.5 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -303,7 +303,11 @@ const MONTHS_S  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','
 const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_F    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 let _upCalM=new Date().getMonth(), _upCalY=new Date().getFullYear();
-let _upView='cal', _upShowReleased=false, _calFilter='all';
+let _upView='cal', _upShowReleased=false, _upShowArchive=false, _calFilter='all';
+function restoreUpcoming(id){
+  const u=upcoming.find(x=>String(x.id)===String(id)); if(!u) return;
+  u.archived=false; saveCache(); pushUpsert('UPCOMING',u); renderUpcoming();
+}
 
 let entries = [], ongoing = [], wishlist = [], upcoming = [];
 let _sheetsUrl = localStorage.getItem(SHEETS_URL) || '';
@@ -390,7 +394,7 @@ function normUpcoming(rows){ return (rows||[]).map(u=>({
   airDay:u.airDay!==undefined&&u.airDay!==''?Number(u.airDay):'',
   firstAirDate:toYMD(u.firstAirDate)||'', totalEp:String(u.totalEp||''),
   epsPerWeek:String(u.epsPerWeek||'1'), premiereEps:String(u.premiereEps||'1'),
-  startEp:String(u.startEp||'1'), notes:String(u.notes||'')
+  startEp:String(u.startEp||'1'), addedAt:toYMD(u.addedAt)||'', archived:u.archived===true||String(u.archived).toLowerCase()==='true', notes:String(u.notes||'')
 })).filter(u=>u.title); }
 
 // ═══════════════════════════════════════════════════════════════
@@ -436,6 +440,7 @@ async function doSync(){
   if(!_sheetsUrl){ showToast('Set Sheets URL in Settings',true); return; }
   setSyncStatus('syncing');
   try{
+    await flushPushQueue(); // replay unsent local changes before overwriting from Sheets
     const r=await fetch(_sheetsUrl + '?t=' + Date.now(), { method:'GET', redirect:'follow', cache:'no-store' });
     if(!r.ok) throw new Error('HTTP '+r.status);
     const text=await r.text();
@@ -459,15 +464,40 @@ async function doSync(){
   }
 }
 
+// ── Offline push queue — failed writes retry before the next pull ──
+const PUSH_QUEUE_KEY='sc:pushQueue';
+function _loadQueue(){ try{ return JSON.parse(localStorage.getItem(PUSH_QUEUE_KEY)||'[]'); }catch{ return []; } }
+function _saveQueue(q){ localStorage.setItem(PUSH_QUEUE_KEY,JSON.stringify(q)); }
+function enqueuePush(job){
+  const q=_loadQueue().filter(j=>!(j.sheet===job.sheet&&String(j.id)===String(job.id)));
+  q.push(job); _saveQueue(q);
+  showToast('📥 Change queued — will retry on sync ('+q.length+' pending)',true);
+}
+async function _post(body){
+  const r=await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'text/plain'}});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+async function flushPushQueue(){
+  let q=_loadQueue();
+  if(!q.length||!_sheetsUrl) return;
+  while(q.length){
+    const job=q[0];
+    try{
+      await _post(job.op==='delete'?{op:'delete',sheet:job.sheet,id:job.id}:{op:'upsert',sheet:job.sheet,data:job.data});
+      q.shift(); _saveQueue(q);
+    }catch(e){ showToast('⚠ '+q.length+' queued change'+(q.length>1?'s':'')+' still unsent',true); return; }
+  }
+  showToast('✓ Queued changes synced');
+}
 async function pushUpsert(sheet, data){
   if(!_sheetsUrl) return;
-  try{ await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'upsert',sheet,data}),headers:{'Content-Type':'text/plain'}}); setSyncStatus('synced'); }
-  catch{ setSyncStatus('error'); showToast('⚠ Save failed — cached locally',true); }
+  try{ await _post({op:'upsert',sheet,data}); setSyncStatus('synced'); }
+  catch{ setSyncStatus('error'); enqueuePush({op:'upsert',sheet,id:data.id,data}); }
 }
 async function pushDelete(sheet, id){
   if(!_sheetsUrl) return;
-  try{ await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'delete',sheet,id}),headers:{'Content-Type':'text/plain'}}); }
-  catch{ showToast('⚠ Delete sync failed',true); }
+  try{ await _post({op:'delete',sheet,id}); }
+  catch{ enqueuePush({op:'delete',sheet,id}); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -514,13 +544,18 @@ function upcomingActiveWatch(u){
 function autoMergeUpcoming(){
   if(!upcoming.length) return;
   const toRemove=upcoming.filter(u=>{
+    if(u.archived) return false;
     const o=upcomingWatchMatch(u);
     if(!o) return false;
-    if(o.completedType==='Movie'||u.type==='Movie') return true;
-    return o.completed||o.givenUp;
+    const isMovie=o.completedType==='Movie'||u.type==='Movie';
+    const done=isMovie?true:(o.completed||o.givenUp);
+    if(!done) return false;
+    const doneDate=o.completedDate||o.givenUpDate||'';
+    if(u.addedAt&&doneDate&&doneDate<u.addedAt) return false; // rewatch — leave live
+    return true;
   });
   upcoming.forEach(u=>{
-    if(toRemove.includes(u)) return;
+    if(u.archived||toRemove.includes(u)) return;
     if(u.airDay===''||!u.firstAirDate) return;
     const o=upcomingActiveWatch(u);
     if(!o) return;
@@ -532,8 +567,9 @@ function autoMergeUpcoming(){
     pushUpsert('ONGOING',upd);
   });
   if(!toRemove.length) return;
-  upcoming=upcoming.filter(u=>!toRemove.includes(u));
-  saveCache(); toRemove.forEach(u=>pushDelete('UPCOMING',u.id));
+  upcoming=upcoming.map(u=>toRemove.includes(u)?{...u,archived:true}:u);
+  saveCache();
+  upcoming.filter(u=>u.archived&&toRemove.some(t=>String(t.id)===String(u.id))).forEach(u=>pushUpsert('UPCOMING',u));
 }
 function dedupeOngoing(){
   const seen={}, dupes=[];
@@ -813,8 +849,10 @@ function epDateCalc(firstAirDate,airDay,epNum,epsPerWeek,premiereEps){
 
 function renderUpcoming(){
   const today=todayYMD();
-  const confirmed=upcoming.filter(u=>u.releaseDate).sort((a,b)=>a.releaseDate.localeCompare(b.releaseDate));
-  const tba=upcoming.filter(u=>!u.releaseDate).sort((a,b)=>(a.releaseYear||'9999').localeCompare(b.releaseYear||'9999')||a.title.localeCompare(b.title));
+  const _act=upcoming.filter(u=>!u.archived);
+  const archivedEntries=upcoming.filter(u=>u.archived).sort((a,b)=>(b.releaseDate||'').localeCompare(a.releaseDate||'')||a.title.localeCompare(b.title));
+  const confirmed=_act.filter(u=>u.releaseDate).sort((a,b)=>a.releaseDate.localeCompare(b.releaseDate));
+  const tba=_act.filter(u=>!u.releaseDate).sort((a,b)=>(a.releaseYear||'9999').localeCompare(b.releaseYear||'9999')||a.title.localeCompare(b.title));
 
   function upCard(u){
     const hasDate=!!u.releaseDate, released=hasDate&&u.releaseDate<=today;
@@ -846,7 +884,7 @@ function renderUpcoming(){
 
   // Airing shows
   const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate);
-  const airingUpcoming=upcoming.filter(u=>u.airDay!==''&&u.firstAirDate&&!upcomingActiveWatch(u));
+  const airingUpcoming=upcoming.filter(u=>!u.archived&&u.airDay!==''&&u.firstAirDate&&!upcomingActiveWatch(u));
 
   function airingCard(s,ongId){
     const {title,season,platform,firstAirDate,totalEp,currentEp}=s;
@@ -893,7 +931,7 @@ function renderUpcoming(){
     // Weekly episode drops from airing shows (Watching + Upcoming with schedules)
     const airingAll=[
       ...ongoing.filter(o=>!o.completed&&!o.givenUp&&o.airDay!==''&&o.airDay!==null&&o.airDay!==undefined&&o.firstAirDate).map(o=>({...o,_src:'og'})),
-      ...upcoming.filter(u=>u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate&&!upcomingActiveWatch(u)).map(u=>({...u,_src:'up',currentEp:0}))
+      ...upcoming.filter(u=>!u.archived&&u.airDay!==''&&u.airDay!==null&&u.airDay!==undefined&&u.firstAirDate&&!upcomingActiveWatch(u)).map(u=>({...u,_src:'up',currentEp:0}))
     ];
     const _ve=new Date(_upCalY,_upCalM+1,1);
     const viewEnd=_ve.getFullYear()+'-'+String(_ve.getMonth()+1).padStart(2,'0')+'-01';
@@ -910,6 +948,7 @@ function renderUpcoming(){
     });
     // Release-day drops (skip entries already shown as weekly schedules)
     upcoming.forEach(u=>{
+      if(u.archived) return;
       if(u.airDay!==''&&u.firstAirDate) return;
       if(upcomingActiveWatch(u)) return;
       const d=toYMD(u.releaseDate); if(!d) return;
@@ -981,7 +1020,7 @@ function renderUpcoming(){
 
   let viewHtml='';
   if(_upView==='list'){
-    viewHtml=(notReleased.length||tba.length||released.length)?`
+    viewHtml=(notReleased.length||tba.length||released.length||archivedEntries.length)?`
       ${[...notReleased,...tba].map(upCard).join('')||''}
       ${released.length?`
         <div style="border:1px dashed var(--line);border-radius:12px;padding:10px 14px;margin-top:4px;">
@@ -989,6 +1028,30 @@ function renderUpcoming(){
             ${_upShowReleased?'▾':'▸'} Released (${released.length})
           </button>
           ${_upShowReleased?`<div style="margin-top:10px;">${released.map(upCard).join('')}</div>`:''}
+        </div>`:''}
+      ${archivedEntries.length?`
+        <div style="border:1px dashed var(--line);border-radius:12px;padding:10px 14px;margin-top:4px;">
+          <button onclick="_upShowArchive=!_upShowArchive;renderUpcoming();" style="background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:0;">
+            ${_upShowArchive?'▾':'▸'} 🗄️ Archive (${archivedEntries.length})
+          </button>
+          ${_upShowArchive?`<div style="margin-top:10px;">${archivedEntries.map(u=>{
+            const o=upcomingWatchMatch(u);
+            const outcome=o&&o.givenUp?'💔 Given up'+(o.givenUpDate?' '+fmtDate(o.givenUpDate):'')
+              :o&&(o.completedType==='Movie'||u.type==='Movie')?'🎬 Watched'+(o.completedDate?' '+fmtDate(o.completedDate):'')
+              :o&&o.completed?'✓ Completed'+(o.completedDate?' '+fmtDate(o.completedDate):'')
+              :'';
+            return `
+            <div class="show-card" style="opacity:.85;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div style="flex:1;min-width:0;">
+                <div class="show-card-title" style="font-size:14px;">${esc(u.title)}${u.type==='TV Show'&&u.season?' S'+esc(u.season):''}</div>
+                <div class="show-card-meta">${esc([u.platform,u.releaseDate?fmtDate(u.releaseDate):u.releaseYear?'TBA '+u.releaseYear:''].filter(Boolean).join(' · '))}</div>
+                ${outcome?`<div class="show-card-meta" style="margin-top:2px;">${outcome}</div>`:''}
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button class="btn btn-sm btn-secondary" onclick="restoreUpcoming('${u.id}')">↩</button>
+                <button class="btn btn-sm btn-ghost" onclick="deleteUpcoming('${u.id}')">✕</button>
+              </div>
+            </div>`;}).join('')}</div>`:''}
         </div>`:''}
     `:'<div class="empty" style="padding:20px 0;"><div class="empty-text">No upcoming entries.</div></div>';
   } else if(_upView==='airing'){
@@ -1658,6 +1721,8 @@ function saveUpcoming(){
     epsPerWeek:String(Math.max(1,parseInt(document.getElementById('up-epsperweek')?.value)||1)),
     premiereEps:String(Math.max(1,parseInt(document.getElementById('up-premiereeps')?.value)||1)),
     startEp:String(Math.max(1,parseInt(document.getElementById('up-startep')?.value)||1)),
+    addedAt:_editUpcomingId?((upcoming.find(u=>String(u.id)===String(_editUpcomingId))||{}).addedAt||''):todayYMD(),
+    archived:_editUpcomingId?!!(upcoming.find(u=>String(u.id)===String(_editUpcomingId))||{}).archived:false,
     notes:document.getElementById('up-notes').value
   };
   if(_editUpcomingId){ upcoming=upcoming.map(u=>String(u.id)===String(_editUpcomingId)?item:u); }
