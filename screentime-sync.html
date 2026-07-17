@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.1 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.3 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -492,6 +492,33 @@ async function sheetsPost(body) {
   return d;
 }
 
+// ── Offline push queue — failed writes retry before the next pull ─────────────
+const PUSH_QUEUE_KEY = 'sc:pushQueue';
+function _loadQueue() { try { return JSON.parse(localStorage.getItem(PUSH_QUEUE_KEY) || '[]'); } catch { return []; } }
+function _saveQueue(q) { localStorage.setItem(PUSH_QUEUE_KEY, JSON.stringify(q)); }
+function enqueuePush(job) {
+  const q = _loadQueue().filter(j => !(j.sheet===job.sheet && String(j.id)===String(job.id)));
+  q.push(job); _saveQueue(q);
+  showSyncToast('📥 Change queued — will retry on next sync (' + q.length + ' pending)');
+}
+async function flushPushQueue() {
+  let q = _loadQueue();
+  if(!q.length || !hasSheetsUrl()) return;
+  while(q.length) {
+    const job = q[0];
+    try {
+      await sheetsPost(job.op === 'delete'
+        ? { op:'delete', sheet:job.sheet, id:job.id }
+        : { op:'upsert', sheet:job.sheet, data:job.data });
+      q.shift(); _saveQueue(q);
+    } catch(err) {
+      showSyncToast('⚠ ' + q.length + ' queued change' + (q.length>1?'s':'') + ' still unsent');
+      return; // keep remainder; retry next time
+    }
+  }
+  showSyncToast('✓ Queued changes synced');
+}
+
 // ── Cache helpers ─────────────────────────────────────────────────────────────
 function loadCache() {
   try { entries  = JSON.parse(localStorage.getItem(CACHE_ENTRIES)  || '[]'); } catch { entries  = []; }
@@ -514,6 +541,7 @@ async function pullFromSheets(silent=false) {
   _syncing = true;
   setSyncStatus('syncing');
   try {
+    await flushPushQueue(); // replay unsent local changes before overwriting from Sheets
     const data = await sheetsGet();
     // Normalise data
     entries  = normaliseEntries(data.entries  || []);
@@ -546,7 +574,7 @@ async function pushUpsert(sheet, data) {
     setSyncStatus('synced');
   } catch(err) {
     setSyncStatus('error');
-    showSyncToast('⚠ Save failed: ' + (err.message||'unknown') + ' — cached locally');
+    enqueuePush({ op:'upsert', sheet, id:data.id, data });
   }
 }
 
@@ -555,7 +583,7 @@ async function pushDelete(sheet, id) {
   try {
     await sheetsPost({ op:'delete', sheet, id });
   } catch(err) {
-    showSyncToast('⚠ Delete sync failed');
+    enqueuePush({ op:'delete', sheet, id });
   }
 }
 
@@ -646,6 +674,8 @@ function normaliseUpcoming(rows) {
     epsPerWeek:   String(u.epsPerWeek  || '1'),
     premiereEps:  String(u.premiereEps || '1'),
     startEp:      String(u.startEp     || '1'),
+    addedAt:      toYMD(u.addedAt) || '',
+    archived:     u.archived === true || String(u.archived).toLowerCase() === 'true',
     notes:        String(u.notes       || '')
   })).filter(u => u.title);
 }
@@ -890,14 +920,21 @@ function upcomingActiveWatch(u) {
 function autoMergeUpcoming() {
   if(!upcoming.length) return;
   const toRemove = upcoming.filter(u => {
+    if(u.archived) return false;
     const o = upcomingWatchMatch(u);
     if(!o) return false;
-    if(o.completedType === 'Movie' || u.type === 'Movie') return true; // watched movie
-    return o.completed || o.givenUp; // finished (or abandoned) TV show
+    const isMovie = o.completedType === 'Movie' || u.type === 'Movie';
+    const done = isMovie ? true : (o.completed || o.givenUp);
+    if(!done) return false;
+    // Rewatch guard: watched BEFORE this entry was added → entry is for a
+    // rewatch/re-release, leave it live
+    const doneDate = o.completedDate || o.givenUpDate || '';
+    if(u.addedAt && doneDate && doneDate < u.addedAt) return false;
+    return true;
   });
   // Hand the airing schedule to the Watching row of actively-watched shows
   upcoming.forEach(u => {
-    if(toRemove.includes(u)) return;
+    if(u.archived || toRemove.includes(u)) return;
     if(u.airDay === '' || !u.firstAirDate) return;
     const o = upcomingActiveWatch(u);
     if(!o) return;
@@ -910,10 +947,12 @@ function autoMergeUpcoming() {
     pushUpsert('ONGOING', upd);
   });
   if(!toRemove.length) return;
-  upcoming = upcoming.filter(u => !toRemove.includes(u));
+  // Archive instead of deleting — the row stays in the sheet for reference
+  upcoming = upcoming.map(u => toRemove.includes(u) ? {...u, archived: true} : u);
   localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
-  toRemove.forEach(u => pushDelete('UPCOMING', u.id));
-  showSyncToast('✓ ' + toRemove.map(u=>u.title).join(', ') + ' cleared from Upcoming');
+  upcoming.filter(u => u.archived && toRemove.some(t => String(t.id)===String(u.id)))
+    .forEach(u => pushUpsert('UPCOMING', u));
+  showSyncToast('🗄️ ' + toRemove.map(u=>u.title).join(', ') + ' archived from Upcoming');
 }
 
 // ── Platform dropdowns ─────────────────────────────────────────────────────────
@@ -2935,6 +2974,15 @@ let _upPrefillDate = '';
 let _upView = 'cal';
 let _calFilter = 'all';
 let _upShowReleased = false;
+let _upShowArchive = false;
+function restoreUpcoming(id) {
+  const u = upcoming.find(x => String(x.id)===String(id));
+  if(!u) return;
+  u.archived = false;
+  localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
+  pushUpsert('UPCOMING', u);
+  renderUpcoming();
+}
 let _upcomingCalMonth = new Date().getMonth();
 let _upcomingCalYear  = new Date().getFullYear();
 
@@ -2965,6 +3013,7 @@ function saveUpcomingEntry() {
   const epsPerWeek  = document.getElementById('up-epsperweek')?.value || '1';
   const notes       = document.getElementById('up-notes').value.trim();
 
+  const _existing = _upcomingEditId ? upcoming.find(u => String(u.id)===String(_upcomingEditId)) : null;
   const entry = {
     id:           _upcomingEditId || (Date.now() + Math.floor(Math.random()*1000)),
     title, type, platform, season,
@@ -2976,6 +3025,8 @@ function saveUpcomingEntry() {
     epsPerWeek:   String(Math.max(1, parseInt(epsPerWeek)||1)),
     premiereEps:  String(Math.max(1, parseInt(document.getElementById('up-premiereeps')?.value)||1)),
     startEp:      String(Math.max(1, parseInt(document.getElementById('up-startep')?.value)||1)),
+    addedAt:      _existing ? (_existing.addedAt || '') : todayYMD(),
+    archived:     _existing ? !!_existing.archived : false,
     notes
   };
 
@@ -3121,7 +3172,7 @@ function renderAiringCalendar() {
   const filterBar = `<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">${fPill('all','All')}${fPill('weekly','📡 Weekly episodes')}${fPill('releases','🎬 Releases')}</div>`;
   // Collect all airing shows from upcoming with a schedule AND from ongoing (watching)
   const airingShows = [
-    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u)).map(u => ({...u, currentEp: 0, _src:'up', _srcId:u.id})),
+    ...upcoming.filter(u => !u.archived && u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u)).map(u => ({...u, currentEp: 0, _src:'up', _srcId:u.id})),
     ...ongoing.filter(o =>
       !o.completed && !o.givenUp &&
       o.completedType !== 'Movie' &&
@@ -3165,6 +3216,7 @@ function renderAiringCalendar() {
   // Also mark release-day drops from Upcoming entries (whole show/movie out same day)
   // — but skip entries that already render as a weekly schedule
   upcoming.forEach(u => {
+    if(u.archived) return;
     if(u.airDay !== '' && u.firstAirDate) return;
     if(upcomingActiveWatch(u)) return; // being watched — Watching row covers it
     const d = toYMD(u.releaseDate);
@@ -3252,11 +3304,14 @@ function renderUpcoming() {
   const today = todayYMD();
 
   // ── Section 1: Coming Soon ────────────────────────────────────────────────
-  const confirmed = upcoming
+  const _active = upcoming.filter(u => !u.archived);
+  const archivedEntries = upcoming.filter(u => u.archived)
+    .sort((a,b) => (b.releaseDate||'').localeCompare(a.releaseDate||'') || a.title.localeCompare(b.title));
+  const confirmed = _active
     .filter(u => u.releaseDate)
     .sort((a,b) => a.releaseDate.localeCompare(b.releaseDate));
 
-  const tba = upcoming
+  const tba = _active
     .filter(u => !u.releaseDate)
     .sort((a,b) => (a.releaseYear||'9999').localeCompare(b.releaseYear||'9999') || a.title.localeCompare(b.title));
 
@@ -3296,7 +3351,7 @@ function renderUpcoming() {
 
   // ── Section 2: Currently Airing ───────────────────────────────────────────
   // Merge upcoming with airing schedule + ongoing shows with airing schedule
-  const airingUpcoming = upcoming.filter(u => u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u));
+  const airingUpcoming = upcoming.filter(u => !u.archived && u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u));
   const airingOngoing  = ongoing.filter(o =>
     !o.completed && !o.givenUp &&
     o.completedType !== 'Movie' &&
@@ -3361,7 +3416,7 @@ function renderUpcoming() {
 
   let viewHtml = '';
   if(_upView === 'list') {
-    viewHtml = (notReleased.length||tba.length||released.length) ? `
+    viewHtml = (notReleased.length||tba.length||released.length||archivedEntries.length) ? `
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${notReleased.map(upcomingCard).join('')}
         ${tba.map(upcomingCard).join('')}
@@ -3371,6 +3426,30 @@ function renderUpcoming() {
               ${_upShowReleased?'▾':'▸'} Released (${released.length})
             </button>
             ${_upShowReleased?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">${released.map(upcomingCard).join('')}</div>`:''}
+          </div>`:''}
+        ${archivedEntries.length ? `
+          <div style="border:1px dashed var(--border);border-radius:12px;padding:10px 14px;">
+            <button onclick="_upShowArchive=!_upShowArchive;renderUpcoming();" style="background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--textMid);padding:0;">
+              ${_upShowArchive?'▾':'▸'} 🗄️ Archive (${archivedEntries.length})
+            </button>
+            ${_upShowArchive?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">${archivedEntries.map(u=>{
+              const o = upcomingWatchMatch(u);
+              const outcome = o && o.givenUp ? `<span style="background:#f7e4e4;color:#a05252;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">💔 Given up${o.givenUpDate?' '+fmtUpcomingDate(o.givenUpDate):''}</span>`
+                : o && (o.completedType==='Movie'||u.type==='Movie') ? `<span style="background:#efe9f7;color:#8a7ab8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">🎬 Watched${o.completedDate?' '+fmtUpcomingDate(o.completedDate):''}</span>`
+                : o && o.completed ? `<span style="background:#e8f5e8;color:#5a9e57;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">✓ Completed${o.completedDate?' '+fmtUpcomingDate(o.completedDate):''}</span>`
+                : '';
+              return `
+              <div style="background:#faf7f2;border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;opacity:.85;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'Lora',serif;font-size:14px;font-weight:700;color:var(--textMid);">${esc(u.title)}${u.type==='TV Show'&&u.season?' S'+esc(u.season):''}</div>
+                  <div style="font-size:11px;color:var(--textDim);margin-top:2px;">${esc([u.platform,u.releaseDate?fmtUpcomingDate(u.releaseDate):u.releaseYear?'TBA '+u.releaseYear:''].filter(Boolean).join(' · '))}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                  ${outcome}
+                  <button onclick="restoreUpcoming('${u.id}')" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;">↩ Restore</button>
+                  <button onclick="deleteUpcomingEntry('${u.id}')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--textDim);cursor:pointer;font-family:inherit;">✕</button>
+                </div>
+              </div>`;}).join('')}</div>`:''}
           </div>`:''}
       </div>
     ` : `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;color:var(--textDim);font-size:13px;">No upcoming entries yet. Click <strong>+ Add Upcoming</strong> to get started.</div>`;
