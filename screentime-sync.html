@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v4.9 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.0 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -3109,7 +3109,7 @@ function renderAiringCalendar() {
       !o.completed && !o.givenUp &&
       o.completedType !== 'Movie' &&
       o.airDay !== undefined && o.airDay !== '' &&
-      o.firstAirDate && o.totalEp
+      o.firstAirDate
     ).map(o => ({
       title: o.title,
       season: o.season,
@@ -3117,6 +3117,9 @@ function renderAiringCalendar() {
       firstAirDate: o.firstAirDate,
       totalEp: o.totalEp,
       currentEp: o.currentEp || 0,
+      epsPerWeek: o.epsPerWeek,
+      premiereEps: o.premiereEps,
+      startEp: o.startEp,
       platform: o.platform,
       _fromWatching: true,
       _src:'og', _srcId:o.id
@@ -3252,8 +3255,8 @@ function renderUpcoming() {
           ? `<span style="background:#f0f0f0;color:var(--textDim);padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">TBA ${u.releaseYear}</span>`
           : `<span style="background:#f0f0f0;color:var(--textDim);padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">TBA</span>`;
     const sub = [u.platform, u.type==='TV Show'&&u.season?'S'+u.season:'', hasDate?fmtUpcomingDate(u.releaseDate):''].filter(Boolean).join(' · ');
-    const hasSchedule = u.airDay !== '' && u.firstAirDate && u.totalEp;
-    const airInfo = hasSchedule ? `<div style="font-size:11px;color:var(--textDim);margin-top:3px;">📡 Airs every ${DAY_NAMES_FULL[u.airDay]} · ${u.totalEp} eps</div>` : '';
+    const hasSchedule = u.airDay !== '' && u.firstAirDate;
+    const airInfo = hasSchedule ? `<div style="font-size:11px;color:var(--textDim);margin-top:3px;">📡 Airs every ${DAY_NAMES_FULL[u.airDay]}${u.totalEp?` · ${u.totalEp} eps`:''}</div>` : '';
 
     return `
       <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -3272,20 +3275,24 @@ function renderUpcoming() {
 
   // ── Section 2: Currently Airing ───────────────────────────────────────────
   // Merge upcoming with airing schedule + ongoing shows with airing schedule
-  const airingUpcoming = upcoming.filter(u => u.airDay !== '' && u.firstAirDate && u.totalEp);
+  const airingUpcoming = upcoming.filter(u => u.airDay !== '' && u.firstAirDate);
   const airingOngoing  = ongoing.filter(o =>
     !o.completed && !o.givenUp &&
     o.completedType !== 'Movie' &&
     o.airDay !== undefined && o.airDay !== '' &&
-    o.firstAirDate && o.totalEp
+    o.firstAirDate
   );
 
-  function airingScheduleHtml(title, season, platform, airDay, firstAirDate, totalEp, currentEp) {
+  function airingScheduleHtml(s) {
+    const { title, season, platform, firstAirDate, totalEp } = s;
+    const airDay  = Number(s.airDay);
     const total   = parseInt(totalEp) || 0;
-    const startEp = Math.max(1, parseInt(currentEp||0) + 1);
+    const base    = Math.max(1, parseInt(s.startEp) || 1);
+    const startEp = Math.max(base, parseInt(s.currentEp||0) + 1);
+    const cap     = total || (startEp + 7); // no total known → show next 8 episodes
     let rows = '';
-    for(let ep = startEp; ep <= total; ep++) {
-      const d = episodeDate(firstAirDate, airDay, ep);
+    for(let ep = startEp; ep <= cap; ep++) {
+      const d = episodeDate(firstAirDate, airDay, ep - base + 1, s.epsPerWeek, s.premiereEps);
       if(!d) continue;
       const days    = daysUntil(d);
       const isPast  = d < today;
@@ -3310,15 +3317,15 @@ function renderUpcoming() {
             <div style="font-family:'Lora',serif;font-size:15px;font-weight:700;color:var(--text);">${esc(title)}${season?' S'+esc(season):''}</div>
             <div style="font-size:11px;color:var(--textDim);">${esc(platform||'')} · Airs every ${DAY_NAMES_FULL[airDay]}</div>
           </div>
-          <div style="font-size:11px;color:var(--textDim);">${total} eps total</div>
+          <div style="font-size:11px;color:var(--textDim);">${total ? total+' eps total' : 'ongoing'}</div>
         </div>
         <div>${rows||'<div style="font-size:12px;color:var(--textDim);">No upcoming episodes.</div>'}</div>
       </div>`;
   }
 
   const airingHtml = [
-    ...airingOngoing.map(o => airingScheduleHtml(o.title, o.season, o.platform, Number(o.airDay), o.firstAirDate, o.totalEp, o.currentEp || 0)),
-    ...airingUpcoming.map(u => airingScheduleHtml(u.title, u.season, u.platform, Number(u.airDay), u.firstAirDate, u.totalEp, 0))
+    ...airingOngoing.map(o => airingScheduleHtml(o)),
+    ...airingUpcoming.map(u => airingScheduleHtml({...u, currentEp: 0}))
   ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
 
   // ── Render: sub-views (Coming Soon / Airing / Calendar) ──────────────────
