@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.0 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.1 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -872,20 +872,36 @@ function dedupeOngoing() {
   }
 }
 
-// Auto-remove Upcoming entries once the same title+season is being watched
+// Upcoming ↔ Watching interaction:
+// - Movies: removed from Upcoming as soon as they're logged/watched
+// - TV shows: entry STAYS in Upcoming (with a 📺 Watching badge) while being
+//   watched; removed only once completed or given up. The airing schedule is
+//   handed to the Watching row, which drives the calendar so only unwatched
+//   episodes render.
+function upcomingWatchMatch(u) {
+  const key = t => String(t||'').trim().toLowerCase();
+  return ongoing.find(o => key(o.title)===key(u.title) && String(o.season||'')===String(u.season||''));
+}
+// Actively-watched TV link (not completed/given up) — used by renderers
+function upcomingActiveWatch(u) {
+  const o = upcomingWatchMatch(u);
+  return (o && !o.completed && !o.givenUp && o.completedType !== 'Movie') ? o : null;
+}
 function autoMergeUpcoming() {
   if(!upcoming.length) return;
-  const key = t => String(t||'').trim().toLowerCase();
-  const merged = upcoming.filter(u =>
-    ongoing.some(o => key(o.title)===key(u.title) && String(o.season||'')===String(u.season||'') && !o.givenUp)
-  );
-  if(!merged.length) return;
-  // Hand the airing schedule over to the Watching row so the calendar
-  // keeps showing the remaining (unwatched) episodes
-  merged.forEach(u => {
+  const toRemove = upcoming.filter(u => {
+    const o = upcomingWatchMatch(u);
+    if(!o) return false;
+    if(o.completedType === 'Movie' || u.type === 'Movie') return true; // watched movie
+    return o.completed || o.givenUp; // finished (or abandoned) TV show
+  });
+  // Hand the airing schedule to the Watching row of actively-watched shows
+  upcoming.forEach(u => {
+    if(toRemove.includes(u)) return;
     if(u.airDay === '' || !u.firstAirDate) return;
-    const o = ongoing.find(x => key(x.title)===key(u.title) && String(x.season||'')===String(u.season||'') && !x.givenUp);
-    if(!o || (o.airDay !== '' && o.firstAirDate)) return; // already has one
+    const o = upcomingActiveWatch(u);
+    if(!o) return;
+    if(o.airDay !== '' && o.firstAirDate) return; // already has one
     const upd = {...o, airDay: u.airDay, firstAirDate: u.firstAirDate,
       epsPerWeek: u.epsPerWeek||'1', premiereEps: u.premiereEps||'1', startEp: u.startEp||'1',
       totalEp: o.totalEp || u.totalEp || ''};
@@ -893,10 +909,11 @@ function autoMergeUpcoming() {
     save('ongoing', ongoing);
     pushUpsert('ONGOING', upd);
   });
-  upcoming = upcoming.filter(u => !merged.includes(u));
+  if(!toRemove.length) return;
+  upcoming = upcoming.filter(u => !toRemove.includes(u));
   localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming));
-  merged.forEach(u => pushDelete('UPCOMING', u.id));
-  showSyncToast('🔮→📺 ' + merged.map(u=>u.title).join(', ') + ' moved to Watching');
+  toRemove.forEach(u => pushDelete('UPCOMING', u.id));
+  showSyncToast('✓ ' + toRemove.map(u=>u.title).join(', ') + ' cleared from Upcoming');
 }
 
 // ── Platform dropdowns ─────────────────────────────────────────────────────────
@@ -3104,7 +3121,7 @@ function renderAiringCalendar() {
   const filterBar = `<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">${fPill('all','All')}${fPill('weekly','📡 Weekly episodes')}${fPill('releases','🎬 Releases')}</div>`;
   // Collect all airing shows from upcoming with a schedule AND from ongoing (watching)
   const airingShows = [
-    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate).map(u => ({...u, currentEp: 0, _src:'up', _srcId:u.id})),
+    ...upcoming.filter(u => u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u)).map(u => ({...u, currentEp: 0, _src:'up', _srcId:u.id})),
     ...ongoing.filter(o =>
       !o.completed && !o.givenUp &&
       o.completedType !== 'Movie' &&
@@ -3149,6 +3166,7 @@ function renderAiringCalendar() {
   // — but skip entries that already render as a weekly schedule
   upcoming.forEach(u => {
     if(u.airDay !== '' && u.firstAirDate) return;
+    if(upcomingActiveWatch(u)) return; // being watched — Watching row covers it
     const d = toYMD(u.releaseDate);
     if(!d) return;
     if(!calMap[d]) calMap[d] = [];
@@ -3247,7 +3265,10 @@ function renderUpcoming() {
     const released  = hasDate && u.releaseDate <= today;
     const days      = hasDate ? daysUntil(u.releaseDate) : null;
     const daysLabel = days === null ? '' : days === 0 ? '🎉 Today!' : days < 0 ? `Released ${Math.abs(days)}d ago` : `in ${days} day${days===1?'':'s'}`;
-    const badge     = released
+    const w = upcomingActiveWatch(u);
+    const badge = w
+      ? `<span style="background:#e4ecf7;color:#4a6fa5;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">📺 Watching${w.currentEp?` · Ep ${esc(w.currentEp)}${w.totalEp?' of '+esc(w.totalEp):''}`:''}</span>`
+      : released
       ? `<span style="background:#e8f5e8;color:#5a9e57;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">Released</span>`
       : hasDate
         ? `<span style="background:var(--accentPale,#fbe9df);color:var(--accent);padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;">${daysLabel}</span>`
@@ -3275,7 +3296,7 @@ function renderUpcoming() {
 
   // ── Section 2: Currently Airing ───────────────────────────────────────────
   // Merge upcoming with airing schedule + ongoing shows with airing schedule
-  const airingUpcoming = upcoming.filter(u => u.airDay !== '' && u.firstAirDate);
+  const airingUpcoming = upcoming.filter(u => u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u));
   const airingOngoing  = ongoing.filter(o =>
     !o.completed && !o.givenUp &&
     o.completedType !== 'Movie' &&
@@ -3329,8 +3350,8 @@ function renderUpcoming() {
   ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
 
   // ── Render: sub-views (Coming Soon / Airing / Calendar) ──────────────────
-  const notReleased = confirmed.filter(u => u.releaseDate > today);
-  const released    = confirmed.filter(u => u.releaseDate <= today);
+  const notReleased = confirmed.filter(u => u.releaseDate > today || upcomingActiveWatch(u));
+  const released    = confirmed.filter(u => u.releaseDate <= today && !upcomingActiveWatch(u));
 
   const pill = (view, label, count) => `
     <button onclick="_upView='${view}';renderUpcoming();"
