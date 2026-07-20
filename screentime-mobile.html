@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v3.6</div>
+      <div id="header-sub">your watch journal · v3.8</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v3.6 · mobile</div>
+      <div id="drawer-version">v3.8 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -303,7 +303,7 @@ const MONTHS_S  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','
 const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_F    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 let _upCalM=new Date().getMonth(), _upCalY=new Date().getFullYear();
-let _upView='cal', _upShowReleased=false, _upShowArchive=false, _calFilter='all';
+let _upView='cal', _upShowReleased=false, _upShowArchive=false, _calFilter='all', _upSearch='';
 function restoreUpcoming(id){
   const u=upcoming.find(x=>String(x.id)===String(id)); if(!u) return;
   u.archived=false; saveCache(); pushUpsert('UPCOMING',u); renderUpcoming();
@@ -849,8 +849,10 @@ function epDateCalc(firstAirDate,airDay,epNum,epsPerWeek,premiereEps){
 
 function renderUpcoming(){
   const today=todayYMD();
-  const _act=upcoming.filter(u=>!u.archived);
-  const archivedEntries=upcoming.filter(u=>u.archived).sort((a,b)=>(b.releaseDate||'').localeCompare(a.releaseDate||'')||a.title.localeCompare(b.title));
+  const _q=_upSearch.trim().toLowerCase();
+  const _hit=x=>!_q||String(x.title||'').toLowerCase().includes(_q);
+  const _act=upcoming.filter(u=>!u.archived&&_hit(u));
+  const archivedEntries=upcoming.filter(u=>u.archived&&_hit(u)).sort((a,b)=>(b.releaseDate||'').localeCompare(a.releaseDate||'')||a.title.localeCompare(b.title));
   const confirmed=_act.filter(u=>u.releaseDate).sort((a,b)=>a.releaseDate.localeCompare(b.releaseDate));
   const tba=_act.filter(u=>!u.releaseDate).sort((a,b)=>(a.releaseYear||'9999').localeCompare(b.releaseYear||'9999')||a.title.localeCompare(b.title));
 
@@ -883,8 +885,10 @@ function renderUpcoming(){
   }
 
   // Airing shows
-  const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate);
-  const airingUpcoming=upcoming.filter(u=>!u.archived&&u.airDay!==''&&u.firstAirDate&&!upcomingActiveWatch(u));
+  const _aq=_upSearch.trim().toLowerCase();
+  const _ahit=x=>!_aq||String(x.title||'').toLowerCase().includes(_aq);
+  const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate&&_ahit(o));
+  const airingUpcoming=upcoming.filter(u=>!u.archived&&u.airDay!==''&&u.firstAirDate&&!upcomingActiveWatch(u)&&_ahit(u));
 
   function airingCard(s,ongId){
     const {title,season,platform,firstAirDate,totalEp,currentEp}=s;
@@ -912,9 +916,15 @@ function renderUpcoming(){
         logBtn=`<button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="logNextEp('${ongId}')">▶ Log Ep ${nextEp}</button>`;
       }
     }
+    const editBtn=s.id?`<button class="btn btn-sm btn-secondary" onclick="${ongId?'openOngoingModal':'openUpcomingModal'}('${s.id}')">✎</button>`:'';
     return `<div class="show-card" style="margin-bottom:10px;">
-      <div class="show-card-title">${esc(title)}${season?' S'+esc(season):''}</div>
-      <div class="show-card-meta">${esc(platform||'')} · Airs every ${DAYS_F[airDay]}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div class="show-card-title">${esc(title)}${season?' S'+esc(season):''}</div>
+          <div class="show-card-meta">${esc(platform||'')} · Airs every ${DAYS_F[airDay]}</div>
+        </div>
+        ${editBtn}
+      </div>
       <div style="margin-top:8px;">${rows||'<div style="font-size:12px;color:var(--ink-dim);">No upcoming episodes.</div>'}</div>
       ${logBtn}
     </div>`;
@@ -1069,6 +1079,11 @@ function renderUpcoming(){
       ${pillBtn('list','🗓️ Soon',notReleased.length+tba.length)}
       ${pillBtn('airing','📡 Airing')}
       ${pillBtn('cal','📅 Calendar')}
+    </div>
+    ${_upView!=='cal'?`<div style="margin-bottom:12px;"><input id="up-search" type="search" placeholder="🔍 Search upcoming…" value="${esc(_upSearch)}"
+      oninput="_upSearch=this.value;clearTimeout(window._upSearchT);window._upSearchT=setTimeout(()=>{const p=document.getElementById('up-search').selectionStart;renderUpcoming();const s=document.getElementById('up-search');if(s){s.focus();s.setSelectionRange(p,p);}},250);"
+      style="width:100%;border:1px solid var(--line);border-radius:999px;padding:9px 14px;font-family:inherit;font-size:13px;background:var(--card);color:var(--ink);"/></div>`:''}
+    <div style="display:none;">
     </div>
     ${viewHtml}
   `;
@@ -1392,7 +1407,11 @@ function openOngoingModal(id){
         </div>
       </div>
       <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📡 Airing Schedule (optional)</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;">📡 Airing Schedule</div>
+          <label style="font-size:12px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="ong-schedule-on" ${o?.airDay!==undefined&&o?.airDay!==''&&o?.firstAirDate?'checked':''} onchange="document.getElementById('ong-schedule-fields').style.display=this.checked?'':'none';"/> On</label>
+        </div>
+        <div id="ong-schedule-fields" style="display:${o?.airDay!==undefined&&o?.airDay!==''&&o?.firstAirDate?'':'none'};">
         <div class="grid-2">
           <div class="field"><label>Airs every</label>
             <select id="ong-airday">
@@ -1407,6 +1426,7 @@ function openOngoingModal(id){
           <div class="field"><label>Eps on premiere</label><input id="ong-premiereeps" type="number" min="1" value="${o?.premiereEps||1}"/></div>
         </div>
         <div class="field" style="margin-top:8px;"><label>First ep # (split seasons)</label><input id="ong-startep" type="number" min="1" value="${o?.startEp||1}"/></div>
+        </div>
       </div>
     </div>
     <div class="field" style="margin-bottom:8px;">
@@ -1467,8 +1487,8 @@ function saveOngoing(){
     review:isCompleted?(document.getElementById('ong-review')?.value||''):'',
     notes:document.getElementById('ong-notes').value,
     posterUrl:'',
-    airDay:airDayEl?.value!==''&&airDayEl?.value!==undefined?Number(airDayEl.value):'',
-    firstAirDate:document.getElementById('ong-firstairdate')?.value||'',
+    airDay:(document.getElementById('ong-schedule-on')?.checked&&airDayEl?.value!==''&&airDayEl?.value!==undefined)?Number(airDayEl.value):'',
+    firstAirDate:document.getElementById('ong-schedule-on')?.checked?(document.getElementById('ong-firstairdate')?.value||''):'',
     epsPerWeek:String(Math.max(1,parseInt(document.getElementById('ong-epsperweek')?.value)||1)),
     premiereEps:String(Math.max(1,parseInt(document.getElementById('ong-premiereeps')?.value)||1)),
     startEp:String(Math.max(1,parseInt(document.getElementById('ong-startep')?.value)||1))
@@ -1669,11 +1689,15 @@ function openUpcomingModal(id,prefillDate){
     </div>
     <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
-      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||_pd}" onchange="upAutoFill()"/></div>
+      <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||_pd}"/></div>
       <div class="field"><label>Year only (if date unknown)</label><input id="up-releaseyear" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/></div>
     </div>
     <div id="up-airing-fields" style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📡 Airing Schedule</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;">📡 Airing Schedule</div>
+        <label style="font-size:12px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="up-schedule-on" ${u?.airDay!==undefined&&u?.airDay!==''&&u?.firstAirDate?'checked':''} onchange="upScheduleToggle(this.checked)"/> On</label>
+      </div>
+      <div id="up-schedule-inner" style="display:${u?.airDay!==undefined&&u?.airDay!==''&&u?.firstAirDate?'':'none'};">
       <div class="grid-2">
         <div class="field"><label>Airs every</label>
           <select id="up-airday">
@@ -1688,6 +1712,7 @@ function openUpcomingModal(id,prefillDate){
         <div class="field"><label>First ep #</label><input id="up-startep" type="number" min="1" value="${u?.startEp||1}"/></div>
         <div class="field"><label>Eps on premiere</label><input id="up-premiereeps" type="number" min="1" max="20" value="${u?.premiereEps||1}"/></div>
         <div class="field"><label>Eps per week after</label><input id="up-epsperweek" type="number" min="1" max="7" value="${u?.epsPerWeek||1}"/></div>
+      </div>
       </div>
     </div>
     <div class="field"><label>Notes</label><textarea id="up-notes" rows="2">${esc(u?.notes||'')}</textarea></div>
@@ -1708,12 +1733,16 @@ function upTypeChange(){
   if(airf) airf.style.display=isMovie?'none':'block';
 }
 
-function upAutoFill(){
+function upScheduleToggle(on){
+  const inner=document.getElementById('up-schedule-inner');
+  if(inner) inner.style.display=on?'':'none';
+  if(!on) return;
   const typ=document.getElementById('up-type')?.value;
   const rd=document.getElementById('up-releasedate')?.value;
   const ad=document.getElementById('up-airday');
   const fa=document.getElementById('up-firstairdate');
-  if(typ!=='TV Show'||!rd||!ad||ad.value!==''||(fa&&fa.value)) return;
+  const rdValid=rd&&/^\d{4}-\d{2}-\d{2}$/.test(rd)&&rd>='1900-01-01';
+  if(typ!=='TV Show'||!rdValid||!ad||ad.value!==''||(fa&&fa.value)) return;
   ad.value=String(new Date(rd+'T12:00:00').getDay());
   if(fa) fa.value=rd;
 }
@@ -1728,8 +1757,8 @@ function saveUpcoming(){
     season:document.getElementById('up-season')?.value||'',
     releaseDate:document.getElementById('up-releasedate').value||'',
     releaseYear:document.getElementById('up-releasedate').value?'':(document.getElementById('up-releaseyear').value||''),
-    airDay:airDayEl?.value!==''?Number(airDayEl.value):'',
-    firstAirDate:document.getElementById('up-firstairdate').value||'',
+    airDay:(document.getElementById('up-schedule-on')?.checked&&airDayEl?.value!=='')?Number(airDayEl.value):'',
+    firstAirDate:document.getElementById('up-schedule-on')?.checked?(document.getElementById('up-firstairdate').value||''):'',
     totalEp:document.getElementById('up-totalep')?.value||'',
     epsPerWeek:String(Math.max(1,parseInt(document.getElementById('up-epsperweek')?.value)||1)),
     premiereEps:String(Math.max(1,parseInt(document.getElementById('up-premiereeps')?.value)||1)),
