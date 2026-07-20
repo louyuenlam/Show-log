@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.4 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.6 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -276,7 +276,11 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
           <div></div>
         </div>
         <div style="background:#f9f1e3;border-radius:8px;padding:10px;margin-top:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📡 Weekly Airing Schedule (optional)</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">📡 Weekly Airing Schedule</div>
+            <label style="font-size:11px;color:var(--textMid);cursor:pointer;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="of-schedule-on" onchange="document.getElementById('of-schedule-fields').style.display=this.checked?'':'none';"/> On</label>
+          </div>
+          <div id="of-schedule-fields" style="display:none;">
           <div class="grid-2">
             <div><label class="label">Airs every</label>
               <select class="input-field" id="of-airday">
@@ -304,6 +308,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
           </div>
           <div style="margin-top:8px;"><label class="label">First ep # (split seasons)</label>
             <input class="input-field" id="of-startep" type="number" min="1" placeholder="1"/>
+          </div>
           </div>
         </div>
       </div>
@@ -1861,6 +1866,9 @@ function openOngoingModal(editId) {
     document.getElementById('of-epsperweek').value = o.epsPerWeek||'1';
     document.getElementById('of-premiereeps').value = o.premiereEps||'1';
     document.getElementById('of-startep').value = o.startEp||'1';
+    const _hasSched = o.airDay !== undefined && o.airDay !== '' && !!o.firstAirDate;
+    document.getElementById('of-schedule-on').checked = _hasSched;
+    document.getElementById('of-schedule-fields').style.display = _hasSched ? '' : 'none';
     setOngoingScore(o.score||0);
     onCompletedChange();
     document.getElementById('of-review-section').classList.toggle('hidden', !o.completed);
@@ -1884,6 +1892,8 @@ function openOngoingModal(editId) {
     document.getElementById('of-epsperweek').value='1';
     document.getElementById('of-premiereeps').value='1';
     document.getElementById('of-startep').value='1';
+    document.getElementById('of-schedule-on').checked=false;
+    document.getElementById('of-schedule-fields').style.display='none';
     setOngoingScore(0);
     onCompletedChange();
   }
@@ -1941,8 +1951,8 @@ function saveOngoing() {
     score: ongoingScore||null,
     review: document.getElementById('of-review').value,
     givenUp: false, givenUpDate: '',
-    airDay: document.getElementById('of-airday').value !== '' ? Number(document.getElementById('of-airday').value) : '',
-    firstAirDate: document.getElementById('of-firstairdate').value || '',
+    airDay: (document.getElementById('of-schedule-on').checked && document.getElementById('of-airday').value !== '') ? Number(document.getElementById('of-airday').value) : '',
+    firstAirDate: document.getElementById('of-schedule-on').checked ? (document.getElementById('of-firstairdate').value || '') : '',
     epsPerWeek: String(Math.max(1, parseInt(document.getElementById('of-epsperweek')?.value)||1)),
     premiereEps: String(Math.max(1, parseInt(document.getElementById('of-premiereeps')?.value)||1)),
     startEp: String(Math.max(1, parseInt(document.getElementById('of-startep')?.value)||1))
@@ -2995,6 +3005,7 @@ let _upView = 'cal';
 let _calFilter = 'all';
 let _upShowReleased = false;
 let _upShowArchive = false;
+let _upSearch = '';
 function restoreUpcoming(id) {
   const u = upcoming.find(x => String(x.id)===String(id));
   if(!u) return;
@@ -3007,13 +3018,18 @@ let _upcomingCalMonth = new Date().getMonth();
 let _upcomingCalYear  = new Date().getFullYear();
 
 // ── Save / Delete ─────────────────────────────────────────────────────────────
-// Visibly pre-fill the airing schedule from the release date (only when empty)
-function upAutoFillSchedule() {
+// Schedule toggle: show/hide fields; on enable, pre-fill from a VALID release
+// date (guarded — partial years like 0002 from mid-typing are ignored)
+function upScheduleToggle(on) {
+  const inner = document.getElementById('up-schedule-inner');
+  if(inner) inner.style.display = on ? '' : 'none';
+  if(!on) return;
   const typ = document.getElementById('up-type')?.value;
   const rd  = document.getElementById('up-releasedate')?.value;
   const ad  = document.getElementById('up-airday');
   const fa  = document.getElementById('up-firstairdate');
-  if(typ !== 'TV Show' || !rd || !ad || ad.value !== '' || (fa && fa.value)) return;
+  const rdValid = rd && /^\d{4}-\d{2}-\d{2}$/.test(rd) && rd >= '1900-01-01';
+  if(typ !== 'TV Show' || !rdValid || !ad || ad.value !== '' || (fa && fa.value)) return;
   ad.value = String(new Date(rd + 'T12:00:00').getDay());
   if(fa) fa.value = rd;
 }
@@ -3039,8 +3055,8 @@ function saveUpcomingEntry() {
     title, type, platform, season,
     releaseDate:  releaseDate || '',
     releaseYear:  releaseDate ? '' : (releaseYear || ''),
-    airDay:       airDayVal !== '' ? Number(airDayVal) : '',
-    firstAirDate: firstAirDate || '',
+    airDay:       (document.getElementById('up-schedule-on')?.checked && airDayVal !== '') ? Number(airDayVal) : '',
+    firstAirDate: document.getElementById('up-schedule-on')?.checked ? (firstAirDate || '') : '',
     totalEp:      totalEp || '',
     epsPerWeek:   String(Math.max(1, parseInt(epsPerWeek)||1)),
     premiereEps:  String(Math.max(1, parseInt(document.getElementById('up-premiereeps')?.value)||1)),
@@ -3129,13 +3145,17 @@ function openUpcomingModal(id, prefillDate) {
     <div style="background:var(--bgAlt,#f9f1e3);border-radius:10px;padding:12px;margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
       <label style="font-size:11px;color:var(--textDim);">Confirmed release date (leave empty if TBA)</label>
-      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||_upPrefillDate||''}" onchange="upAutoFillSchedule()" style="margin-bottom:8px;"/>
+      <input id="up-releasedate" class="modal-input" type="date" value="${u?.releaseDate||_upPrefillDate||''}" style="margin-bottom:8px;"/>
       <label style="font-size:11px;color:var(--textDim);">Year only (if date unknown)</label>
       <input id="up-releaseyear" class="modal-input" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/>
     </div>
 
     <div id="up-airing-fields" style="background:var(--bgAlt,#f9f1e3);border-radius:10px;padding:12px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:8px;">📡 Airing Schedule (optional)</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;">📡 Airing Schedule</div>
+        <label style="font-size:11px;color:var(--textMid);cursor:pointer;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="up-schedule-on" ${u?.airDay!==undefined&&u?.airDay!==''&&u?.firstAirDate?'checked':''} onchange="upScheduleToggle(this.checked)"/> On</label>
+      </div>
+      <div id="up-schedule-inner" style="display:${u?.airDay!==undefined&&u?.airDay!==''&&u?.firstAirDate?'':'none'};">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div>
           <label style="font-size:11px;color:var(--textDim);">Airs every</label>
@@ -3157,6 +3177,7 @@ function openUpcomingModal(id, prefillDate) {
           <label class="label">Eps per week after</label>
           <input id="up-epsperweek" class="modal-input" type="number" min="1" max="7" value="${u?.epsPerWeek||1}" placeholder="1"/>
         </div>
+      </div>
       </div>
     </div>
 
@@ -3324,8 +3345,10 @@ function renderUpcoming() {
   const today = todayYMD();
 
   // ── Section 1: Coming Soon ────────────────────────────────────────────────
-  const _active = upcoming.filter(u => !u.archived);
-  const archivedEntries = upcoming.filter(u => u.archived)
+  const _q = _upSearch.trim().toLowerCase();
+  const _hit = u => !_q || String(u.title||'').toLowerCase().includes(_q);
+  const _active = upcoming.filter(u => !u.archived && _hit(u));
+  const archivedEntries = upcoming.filter(u => u.archived && _hit(u))
     .sort((a,b) => (b.releaseDate||'').localeCompare(a.releaseDate||'') || a.title.localeCompare(b.title));
   const confirmed = _active
     .filter(u => u.releaseDate)
@@ -3371,16 +3394,19 @@ function renderUpcoming() {
 
   // ── Section 2: Currently Airing ───────────────────────────────────────────
   // Merge upcoming with airing schedule + ongoing shows with airing schedule
-  const airingUpcoming = upcoming.filter(u => !u.archived && u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u));
+  const _aq = _upSearch.trim().toLowerCase();
+  const _ahit = x => !_aq || String(x.title||'').toLowerCase().includes(_aq);
+  const airingUpcoming = upcoming.filter(u => !u.archived && u.airDay !== '' && u.firstAirDate && !upcomingActiveWatch(u) && _ahit(u));
   const airingOngoing  = ongoing.filter(o =>
     !o.completed && !o.givenUp &&
     o.completedType !== 'Movie' &&
     o.airDay !== undefined && o.airDay !== '' &&
-    o.firstAirDate
+    o.firstAirDate && _ahit(o)
   );
 
   function airingScheduleHtml(s) {
     const { title, season, platform, firstAirDate, totalEp } = s;
+    const editBtn = s.id ? `<button onclick="${s._fromWatching ? 'openOngoingModal' : 'openUpcomingModal'}('${s.id}')" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;">✎ Edit</button>` : '';
     const airDay  = Number(s.airDay);
     const total   = parseInt(totalEp) || 0;
     const base    = Math.max(1, parseInt(s.startEp) || 1);
@@ -3413,7 +3439,10 @@ function renderUpcoming() {
             <div style="font-family:'Lora',serif;font-size:15px;font-weight:700;color:var(--text);">${esc(title)}${season?' S'+esc(season):''}</div>
             <div style="font-size:11px;color:var(--textDim);">${esc(platform||'')} · Airs every ${DAY_NAMES_FULL[airDay]}</div>
           </div>
-          <div style="font-size:11px;color:var(--textDim);">${total ? total+' eps total' : 'ongoing'}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:11px;color:var(--textDim);">${total ? total+' eps total' : 'ongoing'}</div>
+            ${editBtn}
+          </div>
         </div>
         <div>${rows||'<div style="font-size:12px;color:var(--textDim);">No upcoming episodes.</div>'}</div>
       </div>`;
@@ -3487,10 +3516,13 @@ function renderUpcoming() {
       </div>
       <button class="btn-primary" onclick="openUpcomingModal(null)">+ Add Upcoming</button>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
       ${pill('list','🗓️ Coming Soon', notReleased.length+tba.length)}
       ${pill('airing','📡 Airing')}
       ${pill('cal','📅 Calendar')}
+      ${_upView!=='cal'?`<input id="up-search" type="search" placeholder="🔍 Search upcoming…" value="${esc(_upSearch)}"
+        oninput="_upSearch=this.value;clearTimeout(window._upSearchT);window._upSearchT=setTimeout(()=>{const p=document.getElementById('up-search').selectionStart;renderUpcoming();const s=document.getElementById('up-search');if(s){s.focus();s.setSelectionRange(p,p);}},250);"
+        style="margin-left:auto;border:1px solid var(--border);border-radius:999px;padding:7px 14px;font-family:'DM Sans',sans-serif;font-size:12px;background:#fff;color:var(--text);min-width:200px;"/>`:''}
     </div>
     ${viewHtml}
   `;
