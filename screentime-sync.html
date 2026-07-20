@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.7 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.8 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2986,6 +2986,42 @@ function episodeDate(firstAirDate, airDay, episodeNum, epsPerWeek, premiereEps) 
   return target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
 }
 
+// ── Inline episode-date editing on the Airing list ────────────────────────────
+// Pinning Ep N to a date rebases the whole schedule so N lands there and
+// subsequent episodes follow the existing cadence.
+let _epEditKey = null;
+function startEpDateEdit(src, id, ep) {
+  _epEditKey = src + ':' + id + ':' + ep;
+  renderUpcoming();
+  const inp = document.getElementById('ep-date-input');
+  if(inp) { inp.focus(); if(inp.showPicker) try { inp.showPicker(); } catch(e){} }
+}
+function cancelEpDateEdit() { _epEditKey = null; renderUpcoming(); }
+function commitEpDateEdit(src, id, ep) {
+  const inp = document.getElementById('ep-date-input');
+  const val = inp ? inp.value : '';
+  if(!val || !/^\d{4}-\d{2}-\d{2}$/.test(val) || val < '1900-01-01') { cancelEpDateEdit(); return; }
+  const list = src === 'og' ? ongoing : upcoming;
+  const row  = list.find(x => String(x.id) === String(id));
+  if(!row) { cancelEpDateEdit(); return; }
+  const base = Math.max(1, parseInt(row.startEp) || 1);
+  const epw  = Math.max(1, parseInt(row.epsPerWeek) || 1);
+  const prem = Math.max(1, parseInt(row.premiereEps) || 1);
+  // Weeks between episode 1 and this episode under the current cadence
+  const n = ep - base + 1;
+  const weeks = n <= prem ? 0 : Math.floor((n - prem - 1) / epw) + 1;
+  // Rebase: firstAirDate = pinned date - weeks
+  const d = new Date(val + 'T12:00:00');
+  d.setDate(d.getDate() - weeks * 7);
+  const newFirst = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const upd = { ...row, firstAirDate: newFirst, airDay: new Date(val + 'T12:00:00').getDay() };
+  if(src === 'og') { ongoing = ongoing.map(x => String(x.id)===String(id) ? upd : x); save('ongoing', ongoing); pushUpsert('ONGOING', upd); }
+  else { upcoming = upcoming.map(x => String(x.id)===String(id) ? upd : x); localStorage.setItem(CACHE_UPCOMING, JSON.stringify(upcoming)); pushUpsert('UPCOMING', upd); }
+  _epEditKey = null;
+  showSyncToast('✓ Ep ' + ep + ' set to ' + fmtUpcomingDate(val) + ' — later episodes shifted');
+  renderUpcoming();
+}
+
 function fmtUpcomingDate(ymd) {
   if(!ymd) return '';
   const d = new Date(ymd + 'T12:00:00');
@@ -3425,7 +3461,13 @@ function renderUpcoming() {
             Ep ${ep}
           </div>
           <div style="font-size:12px;color:${isPast?'var(--textDim)':isToday?'var(--accent)':'var(--text)'};">
-            ${fmtUpcomingDate(d)}
+            ${_epEditKey === (s._src||'')+':'+s.id+':'+ep
+              ? `<input id="ep-date-input" type="date" value="${d}" onclick="event.stopPropagation();"
+                   onchange="commitEpDateEdit('${s._src||''}','${s.id}',${ep})"
+                   onblur="setTimeout(()=>{if(_epEditKey)cancelEpDateEdit();},150)"
+                   style="font-family:inherit;font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:5px;"/>`
+              : `<span onclick="startEpDateEdit('${s._src||''}','${s.id}',${ep})" title="Click to change this date"
+                   style="cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;">${fmtUpcomingDate(d)}</span>`}
           </div>
           <div style="font-size:11px;color:${isPast?'var(--textDim)':'#5a9e57'};font-weight:600;min-width:80px;text-align:right;">
             ${isPast?'Aired':isToday?'🎉 Today':'in '+days+'d'}
@@ -3449,8 +3491,8 @@ function renderUpcoming() {
   }
 
   const airingHtml = [
-    ...airingOngoing.map(o => airingScheduleHtml({...o, _fromWatching: true})),
-    ...airingUpcoming.map(u => airingScheduleHtml({...u, currentEp: 0, _fromWatching: false}))
+    ...airingOngoing.map(o => airingScheduleHtml({...o, _fromWatching: true, _src: 'og'})),
+    ...airingUpcoming.map(u => airingScheduleHtml({...u, currentEp: 0, _fromWatching: false, _src: 'up'}))
   ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
 
   // ── Render: sub-views (Coming Soon / Airing / Calendar) ──────────────────
