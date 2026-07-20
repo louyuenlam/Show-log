@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.8 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.9 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2990,6 +2990,13 @@ function episodeDate(firstAirDate, airDay, episodeNum, epsPerWeek, premiereEps) 
 // Pinning Ep N to a date rebases the whole schedule so N lands there and
 // subsequent episodes follow the existing cadence.
 let _epEditKey = null;
+let _epEditCard = null; // '<src>:<id>' of the card currently in edit mode
+function toggleEpEditMode(src, id) {
+  const key = src + ':' + id;
+  _epEditCard = (_epEditCard === key) ? null : key;
+  _epEditKey = null;
+  renderUpcoming();
+}
 function startEpDateEdit(src, id, ep) {
   _epEditKey = src + ':' + id + ':' + ep;
   renderUpcoming();
@@ -3442,7 +3449,10 @@ function renderUpcoming() {
 
   function airingScheduleHtml(s) {
     const { title, season, platform, firstAirDate, totalEp } = s;
-    const editBtn = s.id ? `<button onclick="${s._fromWatching ? 'openOngoingModal' : 'openUpcomingModal'}('${s.id}')" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;">✎ Edit</button>` : '';
+    const _editing = _epEditCard === (s._src||'')+':'+s.id;
+    const editBtn = s.id ? `
+      <button onclick="toggleEpEditMode('${s._src||''}','${s.id}')" style="font-size:11px;padding:3px 10px;border:1px solid ${_editing?'var(--accent)':'var(--border)'};border-radius:6px;background:${_editing?'var(--accent)':'#fff'};color:${_editing?'#fff':'var(--text)'};cursor:pointer;font-family:inherit;">${_editing?'✓ Done':'✎ Edit dates'}</button>
+      ${_editing?`<button onclick="${s._fromWatching ? 'openOngoingModal' : 'openUpcomingModal'}('${s.id}')" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;">⚙ Settings</button>`:''}` : '';
     const airDay  = Number(s.airDay);
     const total   = parseInt(totalEp) || 0;
     const base    = Math.max(1, parseInt(s.startEp) || 1);
@@ -3466,8 +3476,10 @@ function renderUpcoming() {
                    onchange="commitEpDateEdit('${s._src||''}','${s.id}',${ep})"
                    onblur="setTimeout(()=>{if(_epEditKey)cancelEpDateEdit();},150)"
                    style="font-family:inherit;font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:5px;"/>`
-              : `<span onclick="startEpDateEdit('${s._src||''}','${s.id}',${ep})" title="Click to change this date"
-                   style="cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;">${fmtUpcomingDate(d)}</span>`}
+              : _editing
+                ? `<span onclick="startEpDateEdit('${s._src||''}','${s.id}',${ep})" title="Click to change this date"
+                     style="cursor:pointer;border-bottom:1px dashed var(--accent);padding-bottom:1px;color:var(--accent);">${fmtUpcomingDate(d)} ✎</span>`
+                : fmtUpcomingDate(d)}
           </div>
           <div style="font-size:11px;color:${isPast?'var(--textDim)':'#5a9e57'};font-weight:600;min-width:80px;text-align:right;">
             ${isPast?'Aired':isToday?'🎉 Today':'in '+days+'d'}
@@ -3475,7 +3487,7 @@ function renderUpcoming() {
         </div>`;
     }
     return `
-      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="background:#fff;border:1px solid ${_editing?'var(--accent)':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div>
             <div style="font-family:'Lora',serif;font-size:15px;font-weight:700;color:var(--text);">${esc(title)}${season?' S'+esc(season):''}</div>
@@ -3486,6 +3498,7 @@ function renderUpcoming() {
             ${editBtn}
           </div>
         </div>
+        ${_editing?`<div style="font-size:11px;color:var(--accent);background:#fbe9df;border-radius:6px;padding:6px 10px;margin-bottom:8px;">Click any date to change it — later episodes shift to follow.</div>`:''}
         <div>${rows||'<div style="font-size:12px;color:var(--textDim);">No upcoming episodes.</div>'}</div>
       </div>`;
   }
