@@ -189,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v3.8</div>
+      <div id="header-sub">your watch journal · v4.0</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +203,7 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v3.8 · mobile</div>
+      <div id="drawer-version">v4.0 · mobile</div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -903,7 +903,11 @@ function renderUpcoming(){
       const past=d<today, istoday=d===today, days=daysUntil(d);
       rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
         <span style="color:${past?'var(--ink-dim)':istoday?'var(--accent)':'var(--ink)'};">Ep ${ep}</span>
-        <span style="color:${past?'var(--ink-dim)':istoday?'var(--accent)':'var(--ink)'};">${fmtDate(d)}</span>
+        <span style="color:${past?'var(--ink-dim)':istoday?'var(--accent)':'var(--ink)'};">${_epEditKey===(ongId?'og':'up')+':'+s.id+':'+ep
+          ? `<input id="ep-date-input" type="date" value="${d}" onchange="commitEpDateEdit('${ongId?'og':'up'}','${s.id}',${ep})" onblur="setTimeout(()=>{if(_epEditKey)cancelEpDateEdit();},150)" style="font-family:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--accent);border-radius:5px;"/>`
+          : _editing
+            ? `<span onclick="startEpDateEdit('${ongId?'og':'up'}','${s.id}',${ep})" style="border-bottom:1px dashed var(--accent);color:var(--accent);">${fmtDate(d)} ✎</span>`
+            : fmtDate(d)}</span>
         <span style="color:${past?'var(--ink-dim)':'var(--green)'};font-weight:600;">${past?'Aired':istoday?'🎉 Today':'in '+days+'d'}</span>
       </div>`;
     }
@@ -916,7 +920,11 @@ function renderUpcoming(){
         logBtn=`<button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="logNextEp('${ongId}')">▶ Log Ep ${nextEp}</button>`;
       }
     }
-    const editBtn=s.id?`<button class="btn btn-sm btn-secondary" onclick="${ongId?'openOngoingModal':'openUpcomingModal'}('${s.id}')">✎</button>`:'';
+    const _editing=_epEditCard===(ongId?'og':'up')+':'+s.id;
+    const editBtn=s.id?`<div style="display:flex;gap:5px;flex-shrink:0;">
+      <button class="btn btn-sm ${_editing?'btn-primary':'btn-secondary'}" onclick="toggleEpEditMode('${ongId?'og':'up'}','${s.id}')">${_editing?'✓':'✎'}</button>
+      ${_editing?`<button class="btn btn-sm btn-secondary" onclick="${ongId?'openOngoingModal':'openUpcomingModal'}('${s.id}')">⚙</button>`:''}
+    </div>`:'';
     return `<div class="show-card" style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="flex:1;min-width:0;">
@@ -925,6 +933,7 @@ function renderUpcoming(){
         </div>
         ${editBtn}
       </div>
+      ${_editing?`<div style="font-size:11px;color:var(--accent);background:#fbe9df;border-radius:6px;padding:6px 8px;margin-top:8px;">Tap any date to change it — later episodes shift to follow.</div>`:''}
       <div style="margin-top:8px;">${rows||'<div style="font-size:12px;color:var(--ink-dim);">No upcoming episodes.</div>'}</div>
       ${logBtn}
     </div>`;
@@ -1733,6 +1742,39 @@ function upTypeChange(){
   if(airf) airf.style.display=isMovie?'none':'block';
 }
 
+let _epEditKey=null, _epEditCard=null;
+function toggleEpEditMode(src,id){
+  const key=src+':'+id;
+  _epEditCard=(_epEditCard===key)?null:key;
+  _epEditKey=null; renderUpcoming();
+}
+function startEpDateEdit(src,id,ep){
+  _epEditKey=src+':'+id+':'+ep; renderUpcoming();
+  const inp=document.getElementById('ep-date-input');
+  if(inp){ inp.focus(); if(inp.showPicker) try{inp.showPicker();}catch(e){} }
+}
+function cancelEpDateEdit(){ _epEditKey=null; renderUpcoming(); }
+function commitEpDateEdit(src,id,ep){
+  const inp=document.getElementById('ep-date-input');
+  const val=inp?inp.value:'';
+  if(!val||!/^\d{4}-\d{2}-\d{2}$/.test(val)||val<'1900-01-01'){ cancelEpDateEdit(); return; }
+  const list=src==='og'?ongoing:upcoming;
+  const row=list.find(x=>String(x.id)===String(id));
+  if(!row){ cancelEpDateEdit(); return; }
+  const base=Math.max(1,parseInt(row.startEp)||1);
+  const epw=Math.max(1,parseInt(row.epsPerWeek)||1);
+  const prem=Math.max(1,parseInt(row.premiereEps)||1);
+  const n=ep-base+1;
+  const weeks=n<=prem?0:Math.floor((n-prem-1)/epw)+1;
+  const d=new Date(val+'T12:00:00');
+  d.setDate(d.getDate()-weeks*7);
+  const newFirst=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const upd={...row,firstAirDate:newFirst,airDay:new Date(val+'T12:00:00').getDay()};
+  if(src==='og'){ ongoing=ongoing.map(x=>String(x.id)===String(id)?upd:x); pushUpsert('ONGOING',upd); }
+  else { upcoming=upcoming.map(x=>String(x.id)===String(id)?upd:x); pushUpsert('UPCOMING',upd); }
+  saveCache(); _epEditKey=null;
+  showToast('✓ Ep '+ep+' set — later episodes shifted'); renderUpcoming();
+}
 function upScheduleToggle(on){
   const inner=document.getElementById('up-schedule-inner');
   if(inner) inner.style.display=on?'':'none';
