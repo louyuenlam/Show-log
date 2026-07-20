@@ -139,7 +139,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:'Lora',serif;font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.6 ☁️</span>
+      <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--border);letter-spacing:.05em;">v5.7 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -3449,8 +3449,8 @@ function renderUpcoming() {
   }
 
   const airingHtml = [
-    ...airingOngoing.map(o => airingScheduleHtml(o)),
-    ...airingUpcoming.map(u => airingScheduleHtml({...u, currentEp: 0}))
+    ...airingOngoing.map(o => airingScheduleHtml({...o, _fromWatching: true})),
+    ...airingUpcoming.map(u => airingScheduleHtml({...u, currentEp: 0, _fromWatching: false}))
   ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
 
   // ── Render: sub-views (Coming Soon / Airing / Calendar) ──────────────────
