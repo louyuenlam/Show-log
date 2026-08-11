@@ -6,18 +6,39 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Screentime">
-<meta name="theme-color" content="#FDF9F0">
+<meta name="theme-color" content="#faf5f2">
 <link rel="apple-touch-icon" href="./icon.png">
 <link rel="icon" type="image/png" href="./icon.png">
 <title>Screentime</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>try{var _t=localStorage.getItem('sc:theme');if(_t&&_t!=='rose')document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
 <style>
 :root{
-  --cream:#FDF9F0;--cream-dark:#F5EFE0;--accent:#d4603a;--accent-dark:#b54e2e;
-  --accent-pale:#fbe9df;--accent-light:#e8a489;--ink:#2c1a0e;--ink-soft:#5a4030;
-  --ink-dim:#8a7060;--border:#e8d9c0;--warn:#c0792e;--green:#5a9e57;
+  /* ---- type ---- */
+  --fontHead:'Fraunces',Georgia,serif;
+  --fontBody:'Manrope',-apple-system,BlinkMacSystemFont,sans-serif;
+  /* ---- surfaces ---- */
+  --bg:#faf5f2;--bgCard:#fffaf8;--bgInput:#faf3f0;--bgSubtle:#f4e9e5;
+  --border:#e8d7d1;--borderStrong:#dbc6bf;--borderFaint:#f0e4e0;
+  --text:#2b1c19;--textMid:#7a5850;--textDim:#b09a94;--onAccent:#fffaf8;
+  /* ---- accent (B - dusty clay rose) ---- */
+  --accent:#ac6058;--accentHover:#95504a;--accentLight:#cf948c;
+  --accentTint:#f5e6e3;--accentTintBorder:#e6cbc7;
+  /* ---- states ---- */
+  --matcha:#6f9166;--matchaTint:#e8efe4;--matchaBorder:#cfdcc8;--matchaText:#4f6b48;
+  --giveUp:#7f6a9c;--giveUpTint:#ece7f2;--giveUpBorder:#ddd4e6;--giveUpText:#5f4e78;
+  --airing:#b8862f;--airingTint:#f4ead3;--airingBorder:#e3d0a8;--airingText:#7d5c1c;
+  --danger:#a3352b;--dangerTint:#f7e3df;--dangerBorder:#e3bdb5;
+  /* ---- radius / elevation ---- */
+  --rInput:8px;--rBtn:10px;--rCard:16px;--rModal:20px;--rPill:999px;
+  --shadowCard:0 1px 2px rgba(90,55,30,.05),0 6px 16px -8px rgba(90,55,30,.10);
+  /* ---- legacy aliases (existing markup keeps working) ---- */
+  --cream:var(--bg);--cream-dark:var(--bgSubtle);--card:var(--bgCard);
+  --line:var(--border);--ink:var(--text);--ink-soft:var(--textMid);--ink-dim:var(--textDim);
+  --accent-dark:var(--accentHover);--accent-pale:var(--accentTint);--accent-light:var(--accentLight);
+  --green:var(--matcha);--warn:var(--airing);
   --safe-top:env(safe-area-inset-top);--safe-bot:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
@@ -55,6 +76,22 @@ button{font-family:inherit;cursor:pointer;}
 #drawer-title em{font-style:italic;font-weight:500;color:var(--accent);}
 #drawer-version{font-size:10px;color:var(--ink-dim);margin-top:2px;}
 .drawer-nav{padding:8px 0;}
+html[data-theme="terracotta"]{
+  --accent:#c2542f;--accentHover:#a8462a;--accentLight:#e2825d;
+  --accentTint:#f6e5da;--accentTintBorder:#ecc9b6;
+  --bg:#fbf6ef;--bgCard:#fffaf4;--bgInput:#fbf4ea;--bgSubtle:#f6ece0;
+  --border:#ead9c6;--borderStrong:#ddc9b3;--borderFaint:#f0e3d4;
+  --text:#2a1b12;--textMid:#7d5a41;--textDim:#b39a83;--onAccent:#fffaf4;
+}
+html[data-theme="teal"]{
+  --accent:#33646a;--accentHover:#28535a;--accentLight:#6e9a9c;
+  --accentTint:#e2ecec;--accentTintBorder:#c2d7d8;
+  --bg:#f6f5f0;--bgCard:#fdfcf8;--bgInput:#f5f4ee;--bgSubtle:#eceade;
+  --border:#dedcce;--borderStrong:#cdcabb;--borderFaint:#e9e7db;
+  --text:#20262a;--textMid:#5a6669;--textDim:#9aa3a4;--onAccent:#fdfcf8;
+}
+.sw{width:34px;height:34px;border-radius:999px;border:2px solid transparent;padding:0;}
+.sw.on{border-color:var(--text);}
 .drawer-item{display:flex;align-items:center;gap:12px;padding:13px 20px;font-size:14px;font-weight:500;color:var(--ink-soft);border:none;background:none;width:100%;text-align:left;transition:background .15s;}
 .drawer-item:active,.drawer-item.active{background:var(--accent-pale);color:var(--accent-dark);}
 .drawer-item.active{font-weight:700;}
@@ -67,7 +104,7 @@ button{font-family:inherit;cursor:pointer;}
 .tab-view.active{display:block;}
 
 /* ── Cards ── */
-.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.card{background:var(--bgCard);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
 .card-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:2px;}
 .card-sub{font-size:12px;color:var(--ink-dim);}
 .card-meta{font-size:11px;color:var(--ink-dim);}
@@ -78,16 +115,16 @@ button{font-family:inherit;cursor:pointer;}
 
 /* ── Pills ── */
 .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;background:var(--cream-dark);color:var(--ink-soft);border:none;cursor:pointer;}
-.pill.active{background:var(--accent);color:#fff;}
+.pill.active{background:var(--accent);color:var(--onAccent);}
 .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
 
 /* ── Buttons ── */
 .btn{padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;}
-.btn-primary{background:var(--accent-dark);color:#fff;}
+.btn-primary{background:var(--accent-dark);color:var(--onAccent);}
 .btn-primary:active{opacity:.85;}
-.btn-secondary{background:#fff;color:var(--accent-dark);border:1px solid var(--accent);}
+.btn-secondary{background:var(--bgCard);color:var(--accent-dark);border:1px solid var(--accent);}
 .btn-ghost{background:none;color:var(--ink-dim);border:1px solid var(--border);}
-.btn-danger{background:#fee;color:#c44;border:none;}
+.btn-danger{background:var(--dangerTint);color:#c44;border:none;}
 .btn-full{width:100%;}
 .btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;}
 
@@ -116,7 +153,7 @@ button{font-family:inherit;cursor:pointer;}
 
 /* ── Search bar ── */
 .search-wrap{position:relative;margin-bottom:14px;}
-.search-wrap input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--ink);outline:none;}
+.search-wrap input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--border);border-radius:10px;background:var(--bgCard);color:var(--ink);outline:none;}
 .search-wrap::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;}
 
 /* ── Rating badge ── */
@@ -124,7 +161,7 @@ button{font-family:inherit;cursor:pointer;}
 .stars-display{color:var(--accent);font-size:13px;letter-spacing:1px;}
 
 /* ── Completed card ── */
-.show-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.show-card{background:var(--bgCard);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
 .show-card-title{font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink);}
 .show-card-meta{font-size:12px;color:var(--ink-dim);margin-top:2px;}
 .show-card-rating{font-size:12px;color:var(--accent);font-weight:600;margin-top:4px;}
@@ -132,8 +169,8 @@ button{font-family:inherit;cursor:pointer;}
 
 /* ── Type badge ── */
 .type-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--cream-dark);color:var(--ink-soft);}
-.type-badge.tv{background:#e8f0fe;color:#3357d4;}
-.type-badge.movie{background:#e8f5e8;color:#2a7a2a;}
+.type-badge.tv{background:var(--accentTint);color:#3357d4;}
+.type-badge.movie{background:var(--matchaTint);color:#2a7a2a;}
 
 /* ── Progress bar ── */
 .progress-wrap{background:var(--cream-dark);border-radius:999px;height:4px;margin-top:6px;}
@@ -152,7 +189,7 @@ button{font-family:inherit;cursor:pointer;}
 /* ── Watch log calendar ── */
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
 .cal-day-hd{text-align:center;font-size:9px;font-weight:700;color:var(--ink-dim);padding:4px 0;}
-.cal-day{min-height:52px;border-radius:8px;padding:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+.cal-day{min-height:52px;border-radius:8px;padding:4px;border:1px solid var(--border);background:var(--bgCard);cursor:pointer;}
 .cal-day.today{border-color:var(--accent);background:var(--accent-pale);}
 .cal-day.has-entries{cursor:pointer;}
 .cal-day-num{font-size:10px;font-weight:600;color:var(--ink-dim);margin-bottom:2px;}
@@ -161,16 +198,16 @@ button{font-family:inherit;cursor:pointer;}
 .cal-dot.movie{background:var(--green);}
 .cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
 .cal-nav-title{flex:1;text-align:center;font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--ink);}
-.cal-nav-btn{background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:16px;color:var(--ink-soft);}
+.cal-nav-btn{background:var(--bgCard);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:16px;color:var(--ink-soft);}
 
 /* ── Upcoming ── */
 .upcoming-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;}
 .upcoming-badge.soon{background:var(--accent-pale);color:var(--accent-dark);}
-.upcoming-badge.tba{background:#f0f0f0;color:var(--ink-dim);}
-.upcoming-badge.released{background:#e8f5e8;color:var(--green);}
+.upcoming-badge.tba{background:var(--borderFaint);color:var(--ink-dim);}
+.upcoming-badge.released{background:var(--matchaTint);color:var(--green);}
 
 /* ── Stats ── */
-.stat-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.stat-card{background:var(--bgCard);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
 .stat-num{font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--accent);}
 .stat-label{font-size:12px;color:var(--ink-dim);margin-top:2px;}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
@@ -189,7 +226,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v4.3</div>
+      <div id="header-sub">your watch journal · v4.6</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -203,7 +240,12 @@ button{font-family:inherit;cursor:pointer;}
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v4.3 · mobile</div>
+      <div id="drawer-version">v4.6 · mobile · Aug 2026</div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
+        <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
+        <button class="sw" id="sw-teal" onclick="setTheme('teal')" style="background:#33646a;" aria-label="Ink teal"></button>
+      </div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
     <div class="drawer-nav">
@@ -513,6 +555,24 @@ function openDrawer(){
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawer-overlay').classList.remove('open');
+}
+
+const THEME_KEY='sc:theme';
+function setTheme(name){
+  if(name==='rose') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',name);
+  try{ localStorage.setItem(THEME_KEY,name); }catch(e){}
+  ['rose','terracotta','teal'].forEach(t=>{
+    const el=document.getElementById('sw-'+t);
+    if(el) el.classList.toggle('on', t===name);
+  });
+  const mt=document.querySelector('meta[name="theme-color"]');
+  if(mt) mt.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#faf5f2');
+}
+function initTheme(){
+  let t='rose';
+  try{ t=localStorage.getItem(THEME_KEY)||'rose'; }catch(e){}
+  setTheme(t);
 }
 
 function switchTab(tab){
@@ -860,14 +920,14 @@ function renderUpcoming(){
     const hasDate=!!u.releaseDate, released=hasDate&&u.releaseDate<=today;
     const days=hasDate?daysUntil(u.releaseDate):null;
     const w=upcomingActiveWatch(u);
-    const badge=w?`<span class="upcoming-badge" style="background:#e4ecf7;color:#4a6fa5;">📺 Watching${w.currentEp?` · Ep ${esc(w.currentEp)}${w.totalEp?'/'+esc(w.totalEp):''}`:''}</span>`:
+    const badge=w?`<span class="upcoming-badge" style="background:var(--accentTint);color:var(--accent);">📺 Watching${w.currentEp?` · Ep ${esc(w.currentEp)}${w.totalEp?'/'+esc(w.totalEp):''}`:''}</span>`:
       released?`<span class="upcoming-badge released">Released</span>`:
       hasDate?`<span class="upcoming-badge soon">${days===0?'Today!':'in '+days+'d'}</span>`:
       `<span class="upcoming-badge tba">TBA ${u.releaseYear||''}</span>`;
     const sub=[u.platform,u.season?'S'+u.season:'',hasDate?fmtDate(u.releaseDate):''].filter(Boolean).join(' · ');
     // Colour by type: TV=green, Movie(streaming)=purple, Movie(Cinema)=burgundy
     const isMovie=u.type==='Movie', isCinema=u.platform==='Cinema';
-    const clr=isMovie?(isCinema?'#a05252':'#8a7ab8'):'#7d9e7a';
+    const clr=isMovie?(isCinema?'var(--danger)':'var(--giveUp)'):'var(--matcha)';
     const icon=isMovie?(isCinema?'🍿':'🎬'):'📺';
     return `<div class="show-card" style="border-left:4px solid ${clr};">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
@@ -933,7 +993,7 @@ function renderUpcoming(){
         </div>
         ${editBtn}
       </div>
-      ${_editing?`<div style="font-size:11px;color:var(--accent);background:#fbe9df;border-radius:6px;padding:6px 8px;margin-top:8px;">Tap any date to change it — later episodes shift to follow.</div>`:''}
+      ${_editing?`<div style="font-size:11px;color:var(--accent);background:var(--accentTint);border-radius:6px;padding:6px 8px;margin-top:8px;">Tap any date to change it — later episodes shift to follow.</div>`:''}
       <div style="margin-top:8px;">${rows||'<div style="font-size:12px;color:var(--ink-dim);">No upcoming episodes.</div>'}</div>
       ${logBtn}
     </div>`;
@@ -1001,15 +1061,15 @@ function renderUpcoming(){
       const ymd=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
       const evs=calMap[ymd]||[];
       const isToday=ymd===today, isPast=ymd<today;
-      cells+=`<div onclick="openUpcomingModal(null,'${ymd}')" style="cursor:pointer;min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};background:${isToday?'#fbe9df':isPast?'#faf6ee':'#fff'};">
+      cells+=`<div onclick="openUpcomingModal(null,'${ymd}')" style="cursor:pointer;min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};background:${isToday?'var(--accentTint)':isPast?'var(--bgSubtle)':'#fff'};">
         <div style="font-size:10px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isPast?'var(--ink-dim)':'var(--ink)'};">${d}</div>
         ${evs.map(ev=>{
           const click=ev.src?`onclick="event.stopPropagation();${ev.src==='up'?'openUpcomingModal':'openOngoingModal'}('${ev.srcId}')"`:'';
-          if(!ev.isRelease) return `<div ${click} style="font-size:8px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} ${ev.epLabel||('E'+ev.ep)}</div>`;
+          if(!ev.isRelease) return `<div ${click} style="font-size:8px;background:var(--accent);color:var(--onAccent);border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title.length>7?ev.title.slice(0,6)+'…':ev.title)} ${ev.epLabel||('E'+ev.ep)}</div>`;
           const isMv=ev.type==='Movie', isCin=ev.platform==='Cinema';
-          const bg=isMv?(isCin?'#a05252':'#8a7ab8'):'#7d9e7a';
+          const bg=isMv?(isCin?'var(--danger)':'var(--giveUp)'):'var(--matcha)';
           const ic=isMv?(isCin?'🍿':'🎬'):'📺';
-          return `<div ${click} style="font-size:8px;background:${bg};color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${ic}${esc(ev.title.length>6?ev.title.slice(0,5)+'…':ev.title)}</div>`;
+          return `<div ${click} style="font-size:8px;background:${bg};color:var(--onAccent);border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${ic}${esc(ev.title.length>6?ev.title.slice(0,5)+'…':ev.title)}</div>`;
         }).join('')}
       </div>`;
     }
@@ -1027,7 +1087,7 @@ function renderUpcoming(){
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cells}</div>
       <div style="font-size:9px;color:var(--ink-dim);margin-top:6px;">💡 Tap a day to add · tap a show to edit</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
-        ${[['var(--accent)','Weekly ep'],['#7d9e7a','📺 TV'],['#8a7ab8','🎬 Movie'],['#a05252','🍿 Cinema']]
+        ${[['var(--accent)','Weekly ep'],['var(--matcha)','📺 TV'],['var(--giveUp)','🎬 Movie'],['var(--danger)','🍿 Cinema']]
           .map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--ink-soft);"><span style="width:8px;height:8px;border-radius:2px;background:${c};"></span>${l}</span>`).join('')}
       </div>`;
   }
@@ -1427,7 +1487,7 @@ function openOngoingModal(id){
           </select>
         </div>
       </div>
-      <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
+      <div style="background:var(--bgSubtle);border-radius:10px;padding:10px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;">📡 Airing Schedule</div>
           <label style="font-size:12px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="ong-schedule-on" ${o?.airDay!==undefined&&o?.airDay!==''&&o?.firstAirDate?'checked':''} onchange="document.getElementById('ong-schedule-fields').style.display=this.checked?'':'none';"/> On</label>
@@ -1711,12 +1771,12 @@ function openUpcomingModal(id,prefillDate){
         <div class="field"><label>Total Episodes</label><input id="up-totalep" type="number" min="1" value="${u?.totalEp||''}" placeholder="e.g. 10"/></div>
       </div>
     </div>
-    <div style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
+    <div style="background:var(--bgSubtle);border-radius:10px;padding:10px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:8px;">📅 Release Info</div>
       <div class="field"><label>Confirmed release date</label><input id="up-releasedate" type="date" value="${u?.releaseDate||_pd}"/></div>
       <div class="field"><label>Year only (if date unknown)</label><input id="up-releaseyear" type="number" min="2024" max="2030" value="${u?.releaseYear||''}" placeholder="e.g. 2026"/></div>
     </div>
-    <div id="up-airing-fields" style="background:#f9f1e3;border-radius:10px;padding:10px;margin-bottom:12px;">
+    <div id="up-airing-fields" style="background:var(--bgSubtle);border-radius:10px;padding:10px;margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-dim);text-transform:uppercase;">📡 Airing Schedule</div>
         <label style="font-size:12px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="up-schedule-on" ${u?.airDay!==undefined&&u?.airDay!==''&&u?.firstAirDate?'checked':''} onchange="upScheduleToggle(this.checked)"/> On</label>
@@ -1874,6 +1934,7 @@ function saveSettings(){
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
+initTheme();
 loadCache();
 updateLastSyncLabel();
 renderWatchLog();
