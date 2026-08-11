@@ -65,6 +65,34 @@ html[data-theme="teal"]{
   --border:#dedcce;--borderStrong:#cdcabb;--borderFaint:#e9e7db;
   --text:#20262a;--textMid:#5a6669;--textDim:#9aa3a4;--onAccent:#fdfcf8;
 }
+html[data-theme="blue"]{
+  --accent:#5f7f96;--accentHover:#4d6a80;--accentLight:#93aec1;
+  --accentTint:#e4ecf1;--accentTintBorder:#c6d6e1;
+  --bg:#f6f6f2;--bgCard:#fdfdfa;--bgInput:#f5f5f1;--bgSubtle:#eaeae4;
+  --border:#dcdcd4;--borderStrong:#cacac1;--borderFaint:#e8e8e2;
+  --text:#212729;--textMid:#5c666c;--textDim:#9aa3a8;--onAccent:#fdfdfa;
+}
+html[data-theme="oxblood"]{
+  --accent:#8f4048;--accentHover:#78343b;--accentLight:#b8767c;
+  --accentTint:#f3e4e5;--accentTintBorder:#e2c5c7;
+  --bg:#faf5f3;--bgCard:#fffaf9;--bgInput:#faf3f1;--bgSubtle:#f3e8e6;
+  --border:#e7d6d3;--borderStrong:#d9c4c1;--borderFaint:#efe3e1;
+  --text:#2a1a1a;--textMid:#78544f;--textDim:#ae9793;--onAccent:#fffaf9;
+}
+html[data-theme="charcoal"]{
+  --accent:#4a4642;--accentHover:#363330;--accentLight:#8a847e;
+  --accentTint:#ebe9e5;--accentTintBorder:#d5d1cb;
+  --bg:#f7f5f1;--bgCard:#fefdfa;--bgInput:#f6f4f0;--bgSubtle:#ece9e3;
+  --border:#ded9d1;--borderStrong:#ccc7be;--borderFaint:#e9e5de;
+  --text:#24211e;--textMid:#625c55;--textDim:#a49d94;--onAccent:#fefdfa;
+}
+html[data-theme="olive"]{
+  --accent:#6b7245;--accentHover:#565c37;--accentLight:#9aa077;
+  --accentTint:#eaece0;--accentTintBorder:#d3d7c2;
+  --bg:#f6f5ee;--bgCard:#fdfcf6;--bgInput:#f5f4ed;--bgSubtle:#ebe9da;
+  --border:#dcdaca;--borderStrong:#c9c7b5;--borderFaint:#e8e6d8;
+  --text:#232519;--textMid:#5e6148;--textDim:#a3a38d;--onAccent:#fdfcf6;
+}
 .sw{width:30px;height:30px;border-radius:999px;border:2px solid transparent;cursor:pointer;padding:0;}
 .sw.on{border-color:var(--text);}
 .menu-item{display:block;width:100%;text-align:left;background:none;border:none;font-family:var(--fontBody);font-size:12px;color:var(--text);padding:8px 12px;border-radius:6px;}
@@ -185,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.2 · Aug 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.3 · Aug 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -214,10 +242,14 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
           <div style="border-top:1px solid var(--border);margin:5px 0;"></div>
           <div style="padding:8px 12px;border-top:1px solid var(--borderFaint);margin-top:4px;">
             <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--textDim);text-transform:uppercase;margin-bottom:7px;">🎨 Colour</div>
-            <div style="display:flex;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;max-width:168px;">
               <button class="sw" id="sw-rose" onclick="setTheme('rose')" title="Clay rose" style="background:#ac6058;"></button>
               <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" title="Terracotta" style="background:#c2542f;"></button>
               <button class="sw" id="sw-teal" onclick="setTheme('teal')" title="Ink teal" style="background:#33646a;"></button>
+              <button class="sw" id="sw-blue" onclick="setTheme('blue')" title="Dusty blue" style="background:#5f7f96;"></button>
+              <button class="sw" id="sw-oxblood" onclick="setTheme('oxblood')" title="Oxblood" style="background:#8f4048;"></button>
+              <button class="sw" id="sw-charcoal" onclick="setTheme('charcoal')" title="Charcoal" style="background:#4a4642;"></button>
+              <button class="sw" id="sw-olive" onclick="setTheme('olive')" title="Olive" style="background:#6b7245;"></button>
             </div>
           </div>
           <button class="menu-item" onclick="clearAllData();" style="color:var(--accentHover);">🗑️ Clear Data</button>
@@ -945,7 +977,7 @@ function setTheme(name){
   if(name==='rose') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme',name);
   try{ localStorage.setItem(THEME_KEY,name); }catch(e){}
-  ['rose','terracotta','teal'].forEach(t=>{
+  ['rose', 'terracotta', 'teal', 'blue', 'oxblood', 'charcoal', 'olive'].forEach(t=>{
     const el=document.getElementById('sw-'+t);
     if(el) el.classList.toggle('on', t===name);
   });
