@@ -90,6 +90,34 @@ html[data-theme="teal"]{
   --border:#dedcce;--borderStrong:#cdcabb;--borderFaint:#e9e7db;
   --text:#20262a;--textMid:#5a6669;--textDim:#9aa3a4;--onAccent:#fdfcf8;
 }
+html[data-theme="blue"]{
+  --accent:#5f7f96;--accentHover:#4d6a80;--accentLight:#93aec1;
+  --accentTint:#e4ecf1;--accentTintBorder:#c6d6e1;
+  --bg:#f6f6f2;--bgCard:#fdfdfa;--bgInput:#f5f5f1;--bgSubtle:#eaeae4;
+  --border:#dcdcd4;--borderStrong:#cacac1;--borderFaint:#e8e8e2;
+  --text:#212729;--textMid:#5c666c;--textDim:#9aa3a8;--onAccent:#fdfdfa;
+}
+html[data-theme="oxblood"]{
+  --accent:#8f4048;--accentHover:#78343b;--accentLight:#b8767c;
+  --accentTint:#f3e4e5;--accentTintBorder:#e2c5c7;
+  --bg:#faf5f3;--bgCard:#fffaf9;--bgInput:#faf3f1;--bgSubtle:#f3e8e6;
+  --border:#e7d6d3;--borderStrong:#d9c4c1;--borderFaint:#efe3e1;
+  --text:#2a1a1a;--textMid:#78544f;--textDim:#ae9793;--onAccent:#fffaf9;
+}
+html[data-theme="charcoal"]{
+  --accent:#4a4642;--accentHover:#363330;--accentLight:#8a847e;
+  --accentTint:#ebe9e5;--accentTintBorder:#d5d1cb;
+  --bg:#f7f5f1;--bgCard:#fefdfa;--bgInput:#f6f4f0;--bgSubtle:#ece9e3;
+  --border:#ded9d1;--borderStrong:#ccc7be;--borderFaint:#e9e5de;
+  --text:#24211e;--textMid:#625c55;--textDim:#a49d94;--onAccent:#fefdfa;
+}
+html[data-theme="olive"]{
+  --accent:#6b7245;--accentHover:#565c37;--accentLight:#9aa077;
+  --accentTint:#eaece0;--accentTintBorder:#d3d7c2;
+  --bg:#f6f5ee;--bgCard:#fdfcf6;--bgInput:#f5f4ed;--bgSubtle:#ebe9da;
+  --border:#dcdaca;--borderStrong:#c9c7b5;--borderFaint:#e8e6d8;
+  --text:#232519;--textMid:#5e6148;--textDim:#a3a38d;--onAccent:#fdfcf6;
+}
 .sw{width:34px;height:34px;border-radius:999px;border:2px solid transparent;padding:0;}
 .sw.on{border-color:var(--text);}
 .drawer-item{display:flex;align-items:center;gap:12px;padding:13px 20px;font-size:14px;font-weight:500;color:var(--ink-soft);border:none;background:none;width:100%;text-align:left;transition:background .15s;}
@@ -226,7 +254,7 @@ html[data-theme="teal"]{
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v4.6</div>
+      <div id="header-sub">your watch journal · v4.7</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -240,11 +268,15 @@ html[data-theme="teal"]{
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v4.6 · mobile · Aug 2026</div>
-      <div style="display:flex;gap:10px;margin-top:12px;">
+      <div id="drawer-version">v4.7 · mobile · Aug 2026</div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
         <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
         <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
         <button class="sw" id="sw-teal" onclick="setTheme('teal')" style="background:#33646a;" aria-label="Ink teal"></button>
+        <button class="sw" id="sw-blue" onclick="setTheme('blue')" style="background:#5f7f96;" aria-label="Dusty blue"></button>
+        <button class="sw" id="sw-oxblood" onclick="setTheme('oxblood')" style="background:#8f4048;" aria-label="Oxblood"></button>
+        <button class="sw" id="sw-charcoal" onclick="setTheme('charcoal')" style="background:#4a4642;" aria-label="Charcoal"></button>
+        <button class="sw" id="sw-olive" onclick="setTheme('olive')" style="background:#6b7245;" aria-label="Olive"></button>
       </div>
       <div id="last-sync-label" style="font-size:10px;color:var(--ink-dim);margin-top:2px;"></div>
     </div>
@@ -562,7 +594,7 @@ function setTheme(name){
   if(name==='rose') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme',name);
   try{ localStorage.setItem(THEME_KEY,name); }catch(e){}
-  ['rose','terracotta','teal'].forEach(t=>{
+  ['rose', 'terracotta', 'teal', 'blue', 'oxblood', 'charcoal', 'olive'].forEach(t=>{
     const el=document.getElementById('sw-'+t);
     if(el) el.classList.toggle('on', t===name);
   });
