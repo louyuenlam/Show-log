@@ -254,7 +254,7 @@ html[data-theme="olive"]{
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v4.7</div>
+      <div id="header-sub">your watch journal · v4.8</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -268,7 +268,7 @@ html[data-theme="olive"]{
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v4.7 · mobile · Aug 2026</div>
+      <div id="drawer-version">v4.8 · mobile · Aug 2026</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
         <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
         <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
@@ -1382,6 +1382,29 @@ function watchingChipsHtml(){
     .map(o=>`<button type="button" onclick="pickWatching('${String(o.id)}')" style="background:var(--cream-dark);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:11px;line-height:1.3;font-family:inherit;color:var(--ink-soft);white-space:nowrap;">${esc(o.title.length>22?o.title.slice(0,21)+'…':o.title)}${o.season?' S'+esc(String(o.season)):''}</button>`).join('');
 }
 
+// Recompute a Watching row's currentEp from the actual log entries, so editing
+// or deleting an entry keeps progress honest (not just adding one).
+function reconcileOngoing(title,season){
+  const k=String(title||'').trim().toLowerCase(), s=String(season||'');
+  if(!k) return null;
+  const o=ongoing.find(x=>String(x.title||'').trim().toLowerCase()===k
+                        &&String(x.season||'')===s
+                        &&x.completedType!=='Movie');
+  if(!o) return null;
+  let max=0;
+  entries.forEach(e=>{
+    if(String(e.title||'').trim().toLowerCase()!==k) return;
+    if(String(e.season||'')!==s) return;
+    const n=Math.max(parseInt(e.episode)||0,parseInt(e.episodeTo)||0);
+    if(n>max) max=n;
+  });
+  const want=max?String(max):'';
+  if(want===String(o.currentEp||'')) return null;
+  const u={...o,currentEp:want};
+  ongoing=ongoing.map(x=>String(x.id)===String(o.id)?u:x);
+  return u;
+}
+
 function updateOngoingFromEntry(entry){
   const key=t=>String(t||'').trim().toLowerCase();
   if(entry.type==='Movie'){
@@ -1473,9 +1496,19 @@ function saveEntry(addAnother){
     date, notes:document.getElementById('en-notes').value,
     rating:_entryRating||''
   };
+  const _prev=_editEntryId?entries.find(e=>String(e.id)===String(_editEntryId)):null;
+  const _prevKey=_prev?{title:_prev.title,season:_prev.season,type:_prev.type}:null;
   if(_editEntryId){ entries=entries.map(e=>String(e.id)===String(_editEntryId)?entry:e); }
   else{ entries.push(entry); }
   updateOngoingFromEntry(entry);
+  if(_editEntryId){
+    if(entry.type!=='Movie'){ const r=reconcileOngoing(entry.title,entry.season); if(r) pushUpsert('ONGOING',r); }
+    if(_prevKey&&_prevKey.type!=='Movie'&&
+       (String(_prevKey.title||'').trim().toLowerCase()!==String(entry.title||'').trim().toLowerCase()
+        ||String(_prevKey.season||'')!==String(entry.season||''))){
+      const r2=reconcileOngoing(_prevKey.title,_prevKey.season); if(r2) pushUpsert('ONGOING',r2);
+    }
+  }
   removeFromWishlistByTitle(entry.title);
   saveCache(); pushUpsert('ENTRIES',entry);
   if(addAnother===true){ showToast('✓ Saved — add another'); _editEntryId=null; _entryRating=0; buildEntryModal(null); }
@@ -1485,7 +1518,12 @@ function saveEntry(addAnother){
 
 function deleteEntry(id){
   if(!confirm('Delete this entry?')) return;
+  const _gone=entries.find(e=>String(e.id)===String(id));
   entries=entries.filter(e=>String(e.id)!==String(id));
+  if(_gone&&_gone.type!=='Movie'){
+    const r=reconcileOngoing(_gone.title,_gone.season);
+    if(r) pushUpsert('ONGOING',r);
+  }
   saveCache(); pushDelete('ENTRIES',id);
   showToast('Deleted'); renderWatchLog(); _calSelDay=null;
 }
