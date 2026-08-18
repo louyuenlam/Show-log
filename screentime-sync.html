@@ -213,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.3 · Aug 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.4 · Aug 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -986,6 +986,17 @@ function initTheme(){
   let t='rose';
   try{ t=localStorage.getItem(THEME_KEY)||'rose'; }catch(e){}
   setTheme(t);
+}
+
+// One-pass repair: rows whose currentEp disagrees with the watch log get fixed.
+function reconcileAllOngoing() {
+  const fixed = [];
+  ongoing.filter(o => o.completedType!=='Movie' && !o.givenUp).forEach(o => {
+    const r = reconcileOngoing(o.title, o.season);
+    if(r) fixed.push(r);
+  });
+  if(fixed.length && hasSheetsUrl()) fixed.forEach(r => pushUpsert('ONGOING', r));
+  return fixed.length;
 }
 
 function rerender() { dedupeOngoing(); autoMergeUpcoming(); updateStats(); renderTab(currentTab); }
@@ -1844,6 +1855,8 @@ function saveEntry() {
   };
 
   let _ongoingTouched = null;
+  const _prevEntry = editId ? entries.find(e=>String(e.id)===editId) : null;
+  const _prevKey = _prevEntry ? {title:_prevEntry.title, season:_prevEntry.season, type:_prevEntry.type} : null;
   if(editId) {
     entries = entries.map(e=>String(e.id)===editId?entry:e);
   } else {
@@ -1875,21 +1888,63 @@ function saveEntry() {
     }
   }
   save('entries', entries);
+
+  // An edited entry can change which episode is furthest along — recompute the
+  // Watching row from the log, for both the new and the previous title/season.
+  const _reconciled = [];
+  if(editId) {
+    if(type !== 'Movie') { const r = reconcileOngoing(title, season); if(r) _reconciled.push(r); }
+    if(_prevKey && _prevKey.type !== 'Movie' &&
+       (String(_prevKey.title||'').trim().toLowerCase() !== String(title||'').trim().toLowerCase()
+        || String(_prevKey.season||'') !== String(season||''))) {
+      const r2 = reconcileOngoing(_prevKey.title, _prevKey.season); if(r2) _reconciled.push(r2);
+    }
+  }
+
   closeModal('modal-entry');
   rerender();
   // Push to Sheets
   if(hasSheetsUrl()) pushUpsert('ENTRIES', entry);
-  // Push the Watching row affected by this entry (updated OR newly created)
-  if(!editId && hasSheetsUrl() && _ongoingTouched) {
-    pushUpsert('ONGOING', _ongoingTouched);
-  }
+  if(hasSheetsUrl() && _ongoingTouched) pushUpsert('ONGOING', _ongoingTouched);
+  if(hasSheetsUrl()) _reconciled.forEach(r => pushUpsert('ONGOING', r));
 }
 
 function deleteEntry(id) {
+  const _gone = entries.find(e=>String(e.id)===String(id));
   entries = entries.filter(e=>String(e.id)!==String(id));
   save('entries', entries);
+  if(_gone && _gone.type !== 'Movie') {
+    const r = reconcileOngoing(_gone.title, _gone.season);
+    if(r && hasSheetsUrl()) pushUpsert('ONGOING', r);
+  }
   rerender();
   if(hasSheetsUrl()) pushDelete('ENTRIES', id);
+}
+
+// ── ONGOING RECONCILE ─────────────────────────────────────────────────────────
+// Recompute a Watching row's currentEp from the actual watch-log entries, so
+// editing or deleting an entry keeps progress honest (not just adding one).
+function reconcileOngoing(title, season) {
+  const k = String(title||'').trim().toLowerCase();
+  const s = String(season||'');
+  if(!k) return null;
+  const o = ongoing.find(x => String(x.title||'').trim().toLowerCase()===k
+                           && String(x.season||'')===s
+                           && x.completedType!=='Movie');
+  if(!o) return null;
+  let max = 0;
+  entries.forEach(e => {
+    if(String(e.title||'').trim().toLowerCase()!==k) return;
+    if(String(e.season||'')!==s) return;
+    const n = Math.max(parseInt(e.episode)||0, parseInt(e.episodeTo)||0);
+    if(n > max) max = n;
+  });
+  const want = max ? String(max) : '';
+  if(want === String(o.currentEp||'')) return null;   // already correct
+  const u = {...o, currentEp: want};
+  ongoing = ongoing.map(x => String(x.id)===String(o.id) ? u : x);
+  save('ongoing', ongoing);
+  return u;
 }
 
 // ── ONGOING UPSERT ────────────────────────────────────────────────────────────
@@ -3057,6 +3112,9 @@ async function initSync() {
 window.addEventListener('load', () => {
   initTheme();
   setTimeout(initSync, 500);
+  // After the first sync settles, repair any progress that drifted
+  setTimeout(() => { const n = reconcileAllOngoing(); if(n) { rerender();
+    showSyncToast('✓ Corrected episode progress on ' + n + ' show' + (n>1?'s':'')); } }, 4000);
 });
 
 // ═══════════════════════════════════════════════════════════════════════
