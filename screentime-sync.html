@@ -213,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.4 · Aug 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.6 · Aug 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -3665,10 +3665,74 @@ function renderUpcoming() {
       </div>`;
   }
 
-  const airingHtml = [
-    ...airingOngoing.map(o => airingScheduleHtml({...o, _fromWatching: true, _src: 'og'})),
-    ...airingUpcoming.map(u => airingScheduleHtml({...u, currentEp: 0, _fromWatching: false, _src: 'up'}))
-  ].join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
+  // ── Fully-aired-but-unwatched → off the Airing list, onto the Wishlist ─────
+  // A show qualifies once its LAST episode has aired and nothing's been logged.
+  function fullyAiredUnwatched(s) {
+    if((parseInt(s.currentEp) || 0) > 0) return false;      // started watching
+    const total = parseInt(s.totalEp) || 0;
+    if(!total) return false;                                // open-ended run
+    const base = Math.max(1, parseInt(s.startEp) || 1);
+    const last = episodeDate(s.firstAirDate, Number(s.airDay), total - base + 1,
+                             s.epsPerWeek, s.premiereEps);
+    return !!last && last < today;
+  }
+  // Only ever auto-add a title once, so removing it from the Wishlist sticks.
+  function autoWishlist(list) {
+    let done = [];
+    try { done = JSON.parse(localStorage.getItem('sc:autoWishlisted') || '[]'); } catch(e) {}
+    const added = [];
+    list.forEach(s => {
+      const key = String(s.title||'').trim().toLowerCase() + '||' + String(s.season||'');
+      if(done.includes(key)) return;
+      done.push(key);
+      const onList = wishlist.some(w => String(w.title||'').trim().toLowerCase()
+                                        === String(s.title||'').trim().toLowerCase());
+      if(!onList) {
+        const w = {id: Date.now() + Math.floor(Math.random()*1000), title: s.title,
+                   type:'TV Show', platform: s.platform || '',
+                   notes: 'Fully aired' + (s.season ? ' · S' + s.season : '') + ' — not started',
+                   addedDate: new Date().toISOString()};
+        wishlist.push(w); added.push(w);
+      }
+    });
+    if(added.length || list.length) {
+      try { localStorage.setItem('sc:autoWishlisted', JSON.stringify(done)); } catch(e) {}
+    }
+    if(added.length) {
+      save('wishlist', wishlist);
+      if(hasSheetsUrl()) added.forEach(w => pushUpsert('WISHLIST', w));
+      showSyncToast('⭐ ' + added.map(w=>w.title).join(', ') + ' finished airing — added to Wishlist');
+    }
+  }
+
+  // Sort key: date of the next episode still to air. Fully-aired shows sink
+  // to the bottom (keyed 9999) but keep their relative order by last airdate.
+  function nextAirKey(s) {
+    const base  = Math.max(1, parseInt(s.startEp) || 1);
+    const total = parseInt(s.totalEp) || 0;
+    const start = Math.max(base, (parseInt(s.currentEp) || 0) + 1);
+    const cap   = total || (start + 7);
+    let last = '';
+    for(let ep = start; ep <= cap; ep++) {
+      const d = episodeDate(s.firstAirDate, Number(s.airDay), ep - base + 1, s.epsPerWeek, s.premiereEps);
+      if(!d) continue;
+      last = d;
+      if(d >= today) return d;          // first episode not yet aired
+    }
+    return '9999-' + (last || '');      // everything has aired → bottom
+  }
+
+  const _airCandidates = [
+    ...airingOngoing.map(o => ({...o, _fromWatching: true, _src: 'og'})),
+    ...airingUpcoming.map(u => ({...u, currentEp: 0, _fromWatching: false, _src: 'up'}))
+  ];
+  const _retired = _airCandidates.filter(fullyAiredUnwatched);
+  if(_retired.length) setTimeout(() => autoWishlist(_retired), 0);
+
+  const airingHtml = _airCandidates.filter(s => !fullyAiredUnwatched(s)).map(s => ({ k: nextAirKey(s), s }))
+   .sort((a,b) => a.k.localeCompare(b.k) || String(a.s.title||'').localeCompare(String(b.s.title||'')))
+   .map(x => airingScheduleHtml(x.s))
+   .join('') || '<div style="font-size:13px;color:var(--textDim);">No airing schedules set up. Edit a show in Watching or Upcoming and add an airing schedule.</div>';
 
   // ── Render: sub-views (Coming Soon / Airing / Calendar) ──────────────────
   const notReleased = confirmed.filter(u => u.releaseDate > today || upcomingActiveWatch(u));
