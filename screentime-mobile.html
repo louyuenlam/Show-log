@@ -254,7 +254,7 @@ html[data-theme="olive"]{
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v4.8</div>
+      <div id="header-sub">your watch journal · v5.0</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -268,7 +268,7 @@ html[data-theme="olive"]{
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v4.8 · mobile · Aug 2026</div>
+      <div id="drawer-version">v5.0 · mobile · Aug 2026</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
         <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
         <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
@@ -982,6 +982,55 @@ function renderUpcoming(){
   const airingOngoing=ongoing.filter(o=>!o.completed&&!o.givenUp&&o.completedType!=='Movie'&&o.airDay!==''&&o.firstAirDate&&_ahit(o));
   const airingUpcoming=upcoming.filter(u=>!u.archived&&u.airDay!==''&&u.firstAirDate&&!upcomingActiveWatch(u)&&_ahit(u));
 
+  // Fully aired + nothing watched → drop from Airing, add to Wishlist once
+  function fullyAiredUnwatched(s){
+    if((parseInt(s.currentEp)||0)>0) return false;
+    const total=parseInt(s.totalEp)||0;
+    if(!total) return false;
+    const base=Math.max(1,parseInt(s.startEp)||1);
+    const last=epDateCalc(s.firstAirDate,Number(s.airDay),total-base+1,s.epsPerWeek,s.premiereEps);
+    return !!last&&last<todayYMD();
+  }
+  function autoWishlist(list){
+    let done=[];
+    try{ done=JSON.parse(localStorage.getItem('sc:autoWishlisted')||'[]'); }catch(e){}
+    const added=[];
+    list.forEach(s=>{
+      const key=String(s.title||'').trim().toLowerCase()+'||'+String(s.season||'');
+      if(done.includes(key)) return;
+      done.push(key);
+      const onList=wishlist.some(w=>String(w.title||'').trim().toLowerCase()
+                                    ===String(s.title||'').trim().toLowerCase());
+      if(!onList){
+        const w={id:Date.now()+Math.floor(Math.random()*1000),title:s.title,type:'TV Show',
+          platform:s.platform||'',notes:'Fully aired'+(s.season?' · S'+s.season:'')+' — not started',
+          added:new Date().toISOString()};
+        wishlist.push(w); added.push(w);
+      }
+    });
+    try{ localStorage.setItem('sc:autoWishlisted',JSON.stringify(done)); }catch(e){}
+    if(added.length){
+      saveCache(); added.forEach(w=>pushUpsert('WISHLIST',w));
+      showToast('⭐ Added to Wishlist: '+added.map(w=>w.title).join(', '));
+    }
+  }
+
+  // Sort key: next un-aired episode date; fully-aired shows sink to the bottom
+  function nextAirKey(s){
+    const base=Math.max(1,parseInt(s.startEp)||1);
+    const total=parseInt(s.totalEp)||0;
+    const start=Math.max(base,(parseInt(s.currentEp)||0)+1);
+    const cap=total||(start+7);
+    let last='';
+    for(let ep=start;ep<=cap;ep++){
+      const d=epDateCalc(s.firstAirDate,Number(s.airDay),ep-base+1,s.epsPerWeek,s.premiereEps);
+      if(!d) continue;
+      last=d;
+      if(d>=todayYMD()) return d;
+    }
+    return '9999-'+(last||'');
+  }
+
   function airingCard(s,ongId){
     const {title,season,platform,firstAirDate,totalEp,currentEp}=s;
     const _editing=_epEditCard===(ongId?'og':'up')+':'+s.id;
@@ -1032,8 +1081,14 @@ function renderUpcoming(){
   }
 
   const airingHtml=[
-    ...airingOngoing.map(o=>airingCard(o,String(o.id))),
-    ...airingUpcoming.map(u=>airingCard({...u,currentEp:0},null))
+    ...(()=>{ const all=[...airingOngoing.map(o=>({s:o,ong:String(o.id)})),
+        ...airingUpcoming.map(u=>({s:{...u,currentEp:0},ong:null}))];
+      const ret=all.filter(x=>fullyAiredUnwatched(x.s));
+      if(ret.length) setTimeout(()=>autoWishlist(ret.map(x=>x.s)),0);
+      return all.filter(x=>!fullyAiredUnwatched(x.s)); })()
+      .map(x=>({...x,k:nextAirKey(x.s)}))
+      .sort((a,b)=>a.k.localeCompare(b.k)||String(a.s.title||'').localeCompare(String(b.s.title||'')))
+      .map(x=>airingCard(x.s,x.ong))
   ].join('')||'<div class="empty"><div class="empty-text">No airing schedules set up yet.</div></div>';
 
   // ── Monthly airing calendar ──
