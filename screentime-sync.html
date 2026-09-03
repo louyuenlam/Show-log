@@ -213,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.6 · Aug 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.7 · Aug 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2441,6 +2441,15 @@ let listSort = 'default';
 let listMonthFilter = 'all';
 let listTypeFilter = 'all';
 
+// Canvas can't read CSS custom properties — resolve them to real colours.
+// Bonus: exported images now follow whichever theme is active.
+function cssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback || '#000';
+  } catch(e) { return fallback || '#000'; }
+}
+
 function exportCompletedList() {
   const el = document.getElementById('completed-list-overlay');
   if(el) el.remove();
@@ -2491,54 +2500,54 @@ async function saveListAsImage() {
     const ctx = canvas.getContext('2d');
     ctx.scale(2, 2);
 
-    ctx.fillStyle = 'var(--bg)';
+    ctx.fillStyle = cssVar('--bg');
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'var(--border)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = cssVar('--border'); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.roundRect(PAD-12, PAD-12, W-PAD*2+24, H-PAD*2+24, 12); ctx.stroke();
 
     let y = PAD + 16;
-    ctx.fillStyle = 'var(--text)'; ctx.font = 'bold 22px Georgia, serif';
+    ctx.fillStyle = cssVar('--text'); ctx.font = 'bold 22px Georgia, serif';
     ctx.fillText('Watch List', PAD, y); y += 22;
 
     const titleLabel = listMonthFilter==='all' ? 'All Time' : (byMonth[keys[0]]?.label||'');
-    ctx.fillStyle = 'var(--textDim)'; ctx.font = '10px sans-serif';
+    ctx.fillStyle = cssVar('--textDim'); ctx.font = '10px sans-serif';
     ctx.fillText(`SCREENTIME JOURNAL · ${titleLabel.toUpperCase()}`, PAD, y); y += 18;
 
     const totalTV = allItems.filter(o=>o.completedType!=='Movie').length;
     const totalMovies = allItems.filter(o=>o.completedType==='Movie').length;
-    ctx.fillStyle = 'var(--textDim)'; ctx.font = '12px sans-serif';
+    ctx.fillStyle = cssVar('--textDim'); ctx.font = '12px sans-serif';
     let statsText = '';
     if(listTypeFilter!=='movie') statsText += `${totalTV} TV seasons  `;
     if(listTypeFilter!=='tv') statsText += `${totalMovies} movies  `;
     statsText += `· ${allItems.length} total`;
     ctx.fillText(statsText, PAD, y); y += 28;
 
-    ctx.strokeStyle = 'var(--border)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = cssVar('--border'); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
     y += 18;
 
     keys.forEach(mk=>{
       const {label, items} = byMonth[mk];
-      ctx.fillStyle = 'var(--accent)'; ctx.font = 'bold 14px Georgia, serif';
+      ctx.fillStyle = cssVar('--accent'); ctx.font = 'bold 14px Georgia, serif';
       ctx.fillText(label, PAD, y);
       const lw = ctx.measureText(label).width;
-      ctx.fillStyle = 'var(--textDim)'; ctx.font = '10px sans-serif';
+      ctx.fillStyle = cssVar('--textDim'); ctx.font = '10px sans-serif';
       ctx.fillText(`${items.length} show${items.length!==1?'s':''}`, PAD + lw + 10, y);
       y += 8;
-      ctx.strokeStyle = 'var(--border)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = cssVar('--border'); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
       y += 14;
 
       items.forEach((o, i) => {
         const isMovie = o.completedType === 'Movie';
         const stars = o.score ? '★'.repeat(Math.round(o.score/2))+'☆'.repeat(5-Math.round(o.score/2)) : '';
-        ctx.fillStyle = 'var(--textDim)'; ctx.font = '11px sans-serif';
+        ctx.fillStyle = cssVar('--textDim'); ctx.font = '11px sans-serif';
         ctx.fillText(`${i+1}.`, PAD, y);
-        ctx.fillStyle = 'var(--text)'; ctx.font = '13px sans-serif';
+        ctx.fillStyle = cssVar('--text'); ctx.font = '13px sans-serif';
         ctx.fillText(o.title + (!isMovie?` S${o.season}`:''), PAD + 26, y);
         ctx.fillStyle = isMovie ? 'var(--matcha)' : 'var(--accentHover)'; ctx.font = '11px sans-serif';
         ctx.fillText(isMovie?'Movie':'TV Show', W-PAD-160, y);
-        if(stars){ ctx.fillStyle='var(--accentHover)'; ctx.font='11px sans-serif'; ctx.fillText(stars, W-PAD-75, y); }
+        if(stars){ ctx.fillStyle= cssVar('--accentHover'); ctx.font='11px sans-serif'; ctx.fillText(stars, W-PAD-75, y); }
         ctx.strokeStyle='#f0e8e0'; ctx.lineWidth=0.5;
         ctx.beginPath(); ctx.moveTo(PAD,y+6); ctx.lineTo(W-PAD,y+6); ctx.stroke();
         y += lineH;
@@ -2546,7 +2555,7 @@ async function saveListAsImage() {
       y += monthGap;
     });
 
-    ctx.fillStyle='var(--borderFaint)'; ctx.font='italic 10px Georgia,serif'; ctx.textAlign='right';
+    ctx.fillStyle= cssVar('--borderFaint'); ctx.font='italic 10px Georgia,serif'; ctx.textAlign='right';
     ctx.fillText('screentime journal', W-PAD, y+8); ctx.textAlign='left';
 
     // Show image inline for saving
