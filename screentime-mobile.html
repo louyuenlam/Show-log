@@ -254,7 +254,7 @@ html[data-theme="olive"]{
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v5.1</div>
+      <div id="header-sub">your watch journal · v5.2</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -268,7 +268,7 @@ html[data-theme="olive"]{
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v5.1 · mobile · Aug 2026</div>
+      <div id="drawer-version">v5.2 · mobile · Aug 2026</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
         <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
         <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
@@ -845,9 +845,13 @@ async function exportCompletedImage(){
   });
   const keys=Object.keys(byMonth).sort();
 
-  const W=600,PAD=34,lineH=30,monthGap=18;
-  let rows=0; keys.forEach(k=>{ rows+=byMonth[k].items.length+1; });
-  const H=PAD*2+86+rows*lineH+keys.length*monthGap+26;
+  const W=640, PAD=40, lineH=31, monthGap=22;
+  const HEAD_H = 18+22+18+30;           // title + subtitle + stats block
+  const MONTH_H = 26;                    // month heading row
+  const FOOT_H = 34;                     // signature + breathing room
+  let bodyH = 0;
+  keys.forEach((k,i)=>{ bodyH += MONTH_H + byMonth[k].items.length*lineH + (i<keys.length-1?monthGap:0); });
+  const H = PAD + HEAD_H + bodyH + FOOT_H + PAD;
 
   const cv=document.createElement('canvas');
   cv.width=W*2; cv.height=H*2;
@@ -855,11 +859,17 @@ async function exportCompletedImage(){
 
   ctx.fillStyle=cssVar('--bg','#faf5f2'); ctx.fillRect(0,0,W,H);
   ctx.strokeStyle=cssVar('--border','#e8d7d1'); ctx.lineWidth=1;
-  ctx.beginPath(); ctx.roundRect(PAD-12,PAD-12,W-PAD*2+24,H-PAD*2+24,12); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(PAD-14,PAD-14,W-PAD*2+28,H-PAD*2+28,14); ctx.stroke();
+
+  // Column anchors — everything on the right is right-aligned so nothing
+  // can overflow the frame however long the rating is.
+  const RATE_R = W-PAD;          // ratings sit flush to this edge
+  const TYPE_R = RATE_R-96;      // TV / MOVIE label right edge
+  const TITLE_MAX = TYPE_R-44-PAD;
 
   let y=PAD+18;
-  ctx.fillStyle=cssVar('--text','#2b1c19'); ctx.font="bold 22px Fraunces, Georgia, serif";
-  ctx.fillText('Watch List',PAD,y); y+=20;
+  ctx.fillStyle=cssVar('--text','#2b1c19'); ctx.font="bold 24px Fraunces, Georgia, serif";
+  ctx.fillText('Watch List',PAD,y); y+=22;
 
   const label=(cmpMonth!=='all'&&keys.length===1)?byMonth[keys[0]].label
              :(cmpYear!=='all'?cmpYear:'All Time');
@@ -869,30 +879,45 @@ async function exportCompletedImage(){
   const tv=items.filter(o=>o.completedType!=='Movie').length;
   const mv=items.filter(o=>o.completedType==='Movie').length;
   ctx.fillStyle=cssVar('--textMid','#7a5850'); ctx.font='12px Manrope, sans-serif';
-  ctx.fillText(tv+' TV seasons · '+mv+' movies · '+items.length+' total',PAD,y); y+=26;
+  ctx.fillText(tv+' TV seasons · '+mv+' movies · '+items.length+' total',PAD,y); y+=30;
 
-  keys.forEach(k=>{
+  keys.forEach((k,ki)=>{
+    ctx.textAlign='left';
     ctx.fillStyle=cssVar('--accent','#ac6058'); ctx.font="bold 13px Fraunces, Georgia, serif";
-    ctx.fillText(byMonth[k].label,PAD,y); y+=lineH-8;
+    ctx.fillText(byMonth[k].label,PAD,y); y+=MONTH_H;
+
     byMonth[k].items.forEach(o=>{
-      ctx.fillStyle=cssVar('--text','#2b1c19'); ctx.font='13px Manrope, sans-serif';
-      let t=o.title+(o.completedType!=='Movie'&&o.season?' S'+o.season:'');
-      while(ctx.measureText(t).width>W-PAD*2-110&&t.length>4) t=t.slice(0,-2);
-      if(t!==o.title+(o.completedType!=='Movie'&&o.season?' S'+o.season:'')) t+='…';
+      // title, truncated to the space actually available
+      ctx.textAlign='left';
+      ctx.fillStyle=cssVar('--text','#2b1c19'); ctx.font='13.5px Manrope, sans-serif';
+      const full=o.title+(o.completedType!=='Movie'&&o.season?' S'+o.season:'');
+      let t=full;
+      if(ctx.measureText(t).width>TITLE_MAX){
+        while(t.length>4 && ctx.measureText(t+'…').width>TITLE_MAX) t=t.slice(0,-1);
+        t+='…';
+      }
       ctx.fillText(t,PAD,y);
-      ctx.fillStyle=cssVar('--textDim','#b09a94'); ctx.font='10px Manrope, sans-serif';
-      ctx.fillText(o.completedType==='Movie'?'MOVIE':'TV',W-PAD-100,y);
-      if(o.score){ ctx.fillStyle=cssVar('--accentHover','#95504a'); ctx.font='11px Manrope, sans-serif';
-        ctx.fillText('★'.repeat(Math.round(o.score/2))+' '+o.score+'/10',W-PAD-68,y); }
+
+      // right-hand columns
+      ctx.textAlign='right';
+      ctx.fillStyle=cssVar('--textDim','#b09a94'); ctx.font='9.5px Manrope, sans-serif';
+      ctx.fillText(o.completedType==='Movie'?'MOVIE':'TV',TYPE_R,y);
+
+      if(o.score){
+        ctx.fillStyle=cssVar('--accent','#ac6058'); ctx.font='11px Manrope, sans-serif';
+        ctx.fillText('★'.repeat(Math.round(o.score/2))+'  '+o.score+'/10',RATE_R,y);
+      }
+      ctx.textAlign='left';
+
       ctx.strokeStyle=cssVar('--borderFaint','#f0e4e0'); ctx.lineWidth=0.5;
-      ctx.beginPath(); ctx.moveTo(PAD,y+7); ctx.lineTo(W-PAD,y+7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD,y+8); ctx.lineTo(W-PAD,y+8); ctx.stroke();
       y+=lineH;
     });
-    y+=monthGap;
+    if(ki<keys.length-1) y+=monthGap;
   });
 
   ctx.fillStyle=cssVar('--textDim','#b09a94'); ctx.font='italic 10px Fraunces, Georgia, serif';
-  ctx.textAlign='right'; ctx.fillText('screentime journal',W-PAD,y+6); ctx.textAlign='left';
+  ctx.textAlign='right'; ctx.fillText('screentime journal',W-PAD,y+16); ctx.textAlign='left';
 
   // Prefer the native iOS share sheet; fall back to press-and-hold
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
