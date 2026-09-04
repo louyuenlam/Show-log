@@ -213,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.7 · Aug 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.8 · Aug 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -2538,17 +2538,27 @@ async function saveListAsImage() {
       ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
       y += 14;
 
+      // Right-hand columns are right-aligned so long ratings can't overflow
+      const RATE_R = W-PAD, TYPE_R = RATE_R-86, TITLE_MAX = TYPE_R-56-(PAD+26);
       items.forEach((o, i) => {
         const isMovie = o.completedType === 'Movie';
         const stars = o.score ? '★'.repeat(Math.round(o.score/2))+'☆'.repeat(5-Math.round(o.score/2)) : '';
+        ctx.textAlign = 'left';
         ctx.fillStyle = cssVar('--textDim'); ctx.font = '11px sans-serif';
         ctx.fillText(`${i+1}.`, PAD, y);
         ctx.fillStyle = cssVar('--text'); ctx.font = '13px sans-serif';
-        ctx.fillText(o.title + (!isMovie?` S${o.season}`:''), PAD + 26, y);
-        ctx.fillStyle = isMovie ? 'var(--matcha)' : 'var(--accentHover)'; ctx.font = '11px sans-serif';
-        ctx.fillText(isMovie?'Movie':'TV Show', W-PAD-160, y);
-        if(stars){ ctx.fillStyle= cssVar('--accentHover'); ctx.font='11px sans-serif'; ctx.fillText(stars, W-PAD-75, y); }
-        ctx.strokeStyle='#f0e8e0'; ctx.lineWidth=0.5;
+        let t = o.title + (!isMovie?` S${o.season}`:'');
+        if(ctx.measureText(t).width > TITLE_MAX) {
+          while(t.length>4 && ctx.measureText(t+'…').width > TITLE_MAX) t = t.slice(0,-1);
+          t += '…';
+        }
+        ctx.fillText(t, PAD + 26, y);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = isMovie ? cssVar('--matcha') : cssVar('--accentHover'); ctx.font = '11px sans-serif';
+        ctx.fillText(isMovie?'Movie':'TV Show', TYPE_R, y);
+        if(stars){ ctx.fillStyle= cssVar('--accent'); ctx.font='11px sans-serif'; ctx.fillText(stars, RATE_R, y); }
+        ctx.textAlign = 'left';
+        ctx.strokeStyle=cssVar('--borderFaint'); ctx.lineWidth=0.5;
         ctx.beginPath(); ctx.moveTo(PAD,y+6); ctx.lineTo(W-PAD,y+6); ctx.stroke();
         y += lineH;
       });
