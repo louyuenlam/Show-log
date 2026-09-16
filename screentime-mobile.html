@@ -254,7 +254,7 @@ html[data-theme="olive"]{
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v5.2</div>
+      <div id="header-sub">your watch journal · v5.4</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -268,7 +268,7 @@ html[data-theme="olive"]{
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v5.2 · mobile · Aug 2026</div>
+      <div id="drawer-version">v5.4 · mobile · Sep 2026</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
         <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
         <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
@@ -517,6 +517,7 @@ async function doSync(){
   if(!_sheetsUrl){ showToast('Set Sheets URL in Settings',true); return; }
   setSyncStatus('syncing');
   try{
+    await awaitInflight();  // let writes already sent reach the sheet first
     await flushPushQueue(); // replay unsent local changes before overwriting from Sheets
     const r=await fetch(_sheetsUrl + '?t=' + Date.now(), { method:'GET', redirect:'follow', cache:'no-store' });
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -530,10 +531,11 @@ async function doSync(){
     wishlist = normWishlist(d.wishlist||[]);
     upcoming = normUpcoming(d.upcoming||[]);
     saveCache();
+    const _fixed=reconcileAllOngoing();
     setSyncStatus('synced');
     localStorage.setItem('sc:lastSync', new Date().toISOString());
     updateLastSyncLabel();
-    showToast('✓ Synced '+entries.length+' entries');
+    showToast(_fixed?'✓ Synced · corrected '+_fixed+' show'+(_fixed>1?'s':''):'✓ Synced '+entries.length+' entries');
     rerender();
   }catch(e){
     setSyncStatus('error');
@@ -553,6 +555,11 @@ function enqueuePush(job){
 async function _post(body){
   const r=await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'text/plain'}});
   if(!r.ok) throw new Error('HTTP '+r.status);
+  // Apps Script answers 200 even when the write failed — the error is in the
+  // body. Reading it is what lets a failed push get queued and retried.
+  let d; try{ d=await r.json(); }catch(e){ throw new Error('Bad response from Sheets'); }
+  if(d&&d.error) throw new Error(d.error);
+  return d;
 }
 async function flushPushQueue(){
   let q=_loadQueue();
@@ -566,15 +573,25 @@ async function flushPushQueue(){
   }
   showToast('✓ Queued changes synced');
 }
+// In-flight writes: a pull must wait for these, or it can overwrite local
+// state with sheet data from before a write we've already sent.
+const _inflight=new Set();
+function _track(p){ _inflight.add(p); p.finally(()=>_inflight.delete(p)); return p; }
+async function awaitInflight(){ if(_inflight.size) await Promise.allSettled([..._inflight]); }
+
 async function pushUpsert(sheet, data){
   if(!_sheetsUrl) return;
-  try{ await _post({op:'upsert',sheet,data}); setSyncStatus('synced'); }
-  catch{ setSyncStatus('error'); enqueuePush({op:'upsert',sheet,id:data.id,data}); }
+  return _track((async()=>{
+    try{ await _post({op:'upsert',sheet,data}); setSyncStatus('synced'); }
+    catch{ setSyncStatus('error'); enqueuePush({op:'upsert',sheet,id:data.id,data}); }
+  })());
 }
 async function pushDelete(sheet, id){
   if(!_sheetsUrl) return;
-  try{ await _post({op:'delete',sheet,id}); }
-  catch{ enqueuePush({op:'delete',sheet,id}); }
+  return _track((async()=>{
+    try{ await _post({op:'delete',sheet,id}); }
+    catch{ enqueuePush({op:'delete',sheet,id}); }
+  })());
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1574,6 +1591,16 @@ function reconcileOngoing(title,season){
   const u={...o,currentEp:want};
   ongoing=ongoing.map(x=>String(x.id)===String(o.id)?u:x);
   return u;
+}
+
+// Make every Watching counter agree with the log; push any that drifted.
+function reconcileAllOngoing(){
+  const fixed=[];
+  ongoing.filter(o=>o.completedType!=='Movie'&&!o.givenUp).forEach(o=>{
+    const r=reconcileOngoing(o.title,o.season); if(r) fixed.push(r);
+  });
+  if(fixed.length){ saveCache(); fixed.forEach(r=>pushUpsert('ONGOING',r)); }
+  return fixed.length;
 }
 
 function updateOngoingFromEntry(entry){
