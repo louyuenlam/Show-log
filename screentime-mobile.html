@@ -254,7 +254,7 @@ html[data-theme="olive"]{
     <button class="icon-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
     <div style="flex:1;">
       <div id="header-title">Screen<em>time</em></div>
-      <div id="header-sub">your watch journal · v5.4</div>
+      <div id="header-sub">your watch journal · v5.5</div>
     </div>
     <div id="sync-dot" title="Sync status"></div>
     <button class="icon-btn" onclick="doSync()" aria-label="Sync">↻</button>
@@ -268,7 +268,7 @@ html[data-theme="olive"]{
   <div id="drawer">
     <div id="drawer-header">
       <div id="drawer-title">Screen<em>time</em></div>
-      <div id="drawer-version">v5.4 · mobile · Sep 2026</div>
+      <div id="drawer-version">v5.5 · mobile · Sep 2026</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
         <button class="sw" id="sw-rose" onclick="setTheme('rose')" style="background:#ac6058;" aria-label="Clay rose"></button>
         <button class="sw" id="sw-terracotta" onclick="setTheme('terracotta')" style="background:#c2542f;" aria-label="Terracotta"></button>
@@ -482,12 +482,19 @@ async function pushAllToSheets(){
   if(!_sheetsUrl){ showToast('Set your Sheets URL in Settings first',true); return; }
   setSyncStatus('syncing'); showToast('⬆ Pushing all data…');
   const jobs=[['ENTRIES',entries],['ONGOING',ongoing],['WISHLIST',wishlist],['UPCOMING',upcoming]];
-  let total=0;
+  const CHUNK=150;   // Apps Script dies on huge payloads; the redirect then 404s
+  let total=0, sent=0;
+  const grand=jobs.reduce((n,[,d])=>n+d.length,0);
   try{
     for(const [sheet,data] of jobs){
       if(!data.length) continue;
-      const r=await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'batchUpsert',sheet,data}),headers:{'Content-Type':'text/plain'}});
-      if(!r.ok) throw new Error(sheet+' HTTP '+r.status);
+      for(let i=0;i<data.length;i+=CHUNK){
+        const slice=data.slice(i,i+CHUNK);
+        const r=await fetch(_sheetsUrl,{method:'POST',body:JSON.stringify({op:'batchUpsert',sheet,data:slice}),headers:{'Content-Type':'text/plain'}});
+        if(!r.ok) throw new Error(sheet+' HTTP '+r.status+' (chunk '+(i/CHUNK+1)+')');
+        sent+=slice.length;
+        showToast('⬆ Pushing… '+sent+'/'+grand);
+      }
       total+=data.length;
     }
     localStorage.setItem('sc:lastSync',new Date().toISOString());
