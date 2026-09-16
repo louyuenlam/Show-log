@@ -213,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.8 · Aug 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.9 · Sep 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -643,6 +643,7 @@ async function pullFromSheets(silent=false) {
   _syncing = true;
   setSyncStatus('syncing');
   try {
+    await awaitInflight();  // let writes already sent reach the sheet first
     await flushPushQueue(); // replay unsent local changes before overwriting from Sheets
     const data = await sheetsGet();
     // Normalise data
@@ -653,6 +654,10 @@ async function pullFromSheets(silent=false) {
     saveCache();
     localStorage.setItem(CACHE_MODIFIED,   data.lastModified || '');
     localStorage.setItem(SHEETS_LAST_SYNC, new Date().toISOString());
+    // Now that fresh data is in, make every Watching counter agree with the log.
+    // (Runs here, not on a timer — a slow pull used to dodge the old timer.)
+    const _fixed = reconcileAllOngoing();
+    if(_fixed) showSyncToast('✓ Corrected episode progress on ' + _fixed + ' show' + (_fixed>1?'s':''));
     rerender();
     setSyncStatus('synced');
     localStorage.setItem('sc:lastSync', new Date().toISOString());
@@ -669,24 +674,34 @@ async function pullFromSheets(silent=false) {
 }
 
 // ── Push single item ──────────────────────────────────────────────────────────
+// In-flight writes: a pull must not overwrite local state with sheet data
+// that predates a write we've already sent but which hasn't landed yet.
+const _inflight = new Set();
+function _track(p) { _inflight.add(p); p.finally(() => _inflight.delete(p)); return p; }
+async function awaitInflight() { if(_inflight.size) await Promise.allSettled([..._inflight]); }
+
 async function pushUpsert(sheet, data) {
   if(!hasSheetsUrl()) return;
-  try {
-    await sheetsPost({ op:'upsert', sheet, data });
-    setSyncStatus('synced');
-  } catch(err) {
-    setSyncStatus('error');
-    enqueuePush({ op:'upsert', sheet, id:data.id, data });
-  }
+  return _track((async () => {
+    try {
+      await sheetsPost({ op:'upsert', sheet, data });
+      setSyncStatus('synced');
+    } catch(err) {
+      setSyncStatus('error');
+      enqueuePush({ op:'upsert', sheet, id:data.id, data });
+    }
+  })());
 }
 
 async function pushDelete(sheet, id) {
   if(!hasSheetsUrl()) return;
-  try {
-    await sheetsPost({ op:'delete', sheet, id });
-  } catch(err) {
-    enqueuePush({ op:'delete', sheet, id });
-  }
+  return _track((async () => {
+    try {
+      await sheetsPost({ op:'delete', sheet, id });
+    } catch(err) {
+      enqueuePush({ op:'delete', sheet, id });
+    }
+  })());
 }
 
 // ── Normalise sheet data ──────────────────────────────────────────────────────
@@ -3131,9 +3146,9 @@ async function initSync() {
 window.addEventListener('load', () => {
   initTheme();
   setTimeout(initSync, 500);
-  // After the first sync settles, repair any progress that drifted
-  setTimeout(() => { const n = reconcileAllOngoing(); if(n) { rerender();
-    showSyncToast('✓ Corrected episode progress on ' + n + ' show' + (n>1?'s':'')); } }, 4000);
+  // Local-only mode has no pull to hook, so repair drift on a timer there
+  if(!hasSheetsUrl()) setTimeout(() => { const n = reconcileAllOngoing(); if(n) { rerender();
+    showSyncToast('✓ Corrected episode progress on ' + n + ' show' + (n>1?'s':'')); } }, 1500);
 });
 
 // ═══════════════════════════════════════════════════════════════════════
