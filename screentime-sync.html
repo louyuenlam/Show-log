@@ -213,7 +213,7 @@ input[type=checkbox]{width:15px;height:15px;accent-color:var(--matcha);}
     <div style="display:flex;align-items:baseline;gap:12px;">
       <h1 style="font-family:var(--fontHead);font-size:32px;font-weight:700;color:var(--accent);">Screentime</h1>
       <span style="font-family:var(--fontBody);font-size:11px;color:var(--textDim);letter-spacing:.2em;text-transform:uppercase;">· your watch journal</span>
-      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v6.9 · Sep 2026 ☁️</span>
+      <span style="font-family:var(--fontBody);font-size:10px;color:var(--border);letter-spacing:.05em;">v7.0 · Sep 2026 ☁️</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="load-msg" style="font-family:var(--fontBody);font-size:11px;color:var(--matcha);font-weight:600;"></span>
@@ -539,11 +539,18 @@ async function pushAllToSheets(){
   if(!hasSheetsUrl()){ openSyncSettings(); return; }
   setSyncStatus('syncing'); showSyncToast('⬆ Pushing all data…');
   const jobs=[['ENTRIES',entries],['ONGOING',ongoing],['WISHLIST',wishlist],['UPCOMING',upcoming]];
-  let total=0;
+  const CHUNK=150;   // Apps Script dies on huge payloads; the redirect then 404s
+  let total=0, sent=0;
+  const grand=jobs.reduce((n,[,d])=>n+d.length,0);
   try{
     for(const [sheet,data] of jobs){
       if(!data.length) continue;
-      await sheetsPost({op:'batchUpsert', sheet, data});
+      for(let i=0;i<data.length;i+=CHUNK){
+        const slice=data.slice(i,i+CHUNK);
+        await sheetsPost({op:'batchUpsert', sheet, data:slice});
+        sent+=slice.length;
+        showSyncToast('⬆ Pushing… '+sent+'/'+grand);
+      }
       total+=data.length;
     }
     localStorage.setItem('sc:lastSync',new Date().toISOString());
